@@ -107,7 +107,21 @@ void MainWindow::onReplyFinished(QNetworkReply *reply)
 
         switch(httpCode)
         {
-            case 402:
+            case DEEPSEEK_ERROR_CODES_INVALID_FORMAT:           // Invalid Format
+                ui->te_ChatHistory->append("⚠️ Invalid Format: Invalid request body format.");
+                ui->te_ChatHistory->append("💡 Solution: Please modify your request body according to the hints in the error message. For more API format details, please refer to DeepSeek API Docs.");
+
+                // Предложите альтернативу
+                suggestAlternative();
+            break;
+            case DEEPSEEK_ERROR_CODES_AUTHENTICATION_FAILS:     // Authentication Fails
+                ui->te_ChatHistory->append("⚠️ Authentication Fails: Authentication fails due to the wrong API key.");
+                ui->te_ChatHistory->append("💡 Solution: Please check your API key. If you don't have one, please create an API key first.");
+
+                // Предложите альтернативу
+                suggestAlternative();
+                break;
+            case DEEPSEEK_ERROR_CODES_INSUFFICIENT_BALANCE:
                 ui->te_ChatHistory->append("⚠️ Ошибка баланса: Недостаточно средств на счете API");
                 ui->te_ChatHistory->append("💡 Решение: Пополните баланс на platform.deepseek.com");
 
@@ -118,17 +132,6 @@ void MainWindow::onReplyFinished(QNetworkReply *reply)
                 ui->te_ChatHistory->append("Ошибка: " + reply->errorString());
             break;
         }
-/*
-        if (httpCode == 402) {
-            ui->te_ChatHistory->append("⚠️ Ошибка баланса: Недостаточно средств на счете API");
-            ui->te_ChatHistory->append("💡 Решение: Пополните баланс на platform.deepseek.com");
-
-            // Предложите альтернативу
-            suggestAlternative();
-        } else {
-            ui->te_ChatHistory->append("Ошибка: " + reply->errorString());
-        }
-*/
     }
     reply->deleteLater();
 }
