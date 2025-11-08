@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QNetworkAccessManager>
+#include <QSslConfiguration>
 #include <QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -21,14 +22,17 @@ public:
 
 private slots:
     void on_pb_Send_clicked();
+    void onSslErrors(QNetworkReply *reply, const QList<QSslError> &errors);
     void onReplyFinished(QNetworkReply *reply);
 
 private:
     Ui::MainWindow *ui;
     QNetworkAccessManager *networkManager;
-    QString apiKey = "your_deepseek_api_key_here"; // Замените на ваш API ключ
+    QString apiKey = "your_deepseek_api_key_here..."; // Замените на ваш API ключ
+
 
     void sendMessageToDeepSeek(const QString &message);
     void parseResponse(const QByteArray &response);
+    void suggestAlternative();
 };
 #endif
