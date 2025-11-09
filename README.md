@@ -1,1 +1,1 @@
-Chat Client for DeepSeek
+Chat Client for AI
