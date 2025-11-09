@@ -19,7 +19,27 @@ MainWindow::MainWindow(QWidget *parent)
     connect(networkManager, &QNetworkAccessManager::sslErrors,
             this, &MainWindow::onSslErrors);
 
-    setWindowTitle("aiOr - DeepSeek Chat Client");
+    setWindowTitle("aiOr - AI Chat Client");
+
+    //
+    QString filePath = "api.key";
+    QString apiKey = ApiKeyReader::readApiKey(filePath);
+
+    if (!apiKey.isEmpty()) {
+        qDebug() << "✅ API ключ успешно загружен.";
+        ui->te_ChatHistory->append("✅ API ключ успешно загружен.");
+        qDebug() << "Длина ключа:" << apiKey.length() << "символов.";
+        ui->te_ChatHistory->append(QString("Длина ключа: %1 символов.").arg(apiKey.length()));
+
+        // Используйте apiKey в вашем коде
+        // Например: your_api_function(apiKey);
+
+    } else {
+        qCritical() << "❌ Не удалось загрузить API ключ!";
+        ui->te_ChatHistory->append("❌ Не удалось загрузить API ключ!");
+        qCritical() << "❗️Убедитесь, что файл 'api.key' существует и содержит ваш API ключ!";
+        ui->te_ChatHistory->append("❗️Убедитесь, что файл 'api.key' существует и содержит ваш API ключ!");
+    }
 }
 
 void MainWindow::onSslErrors(QNetworkReply *reply, const QList<QSslError> &errors)
@@ -32,6 +52,7 @@ void MainWindow::onSslErrors(QNetworkReply *reply, const QList<QSslError> &error
     }
 
     ui->te_ChatHistory->append("SSL Errors: " + errorString);
+
     // Можно игнорировать ошибки для тестирования (не для production!)
     reply->ignoreSslErrors();
 }
@@ -68,8 +89,7 @@ void MainWindow::sendMessageToDeepSeek(const QString &message)
 
     // Заголовки
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("Authorization",
-                         QString("Bearer %1").arg(apiKey).toUtf8());
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(apiKey).toUtf8());
 
     // JSON данные
     QJsonObject json;
@@ -109,7 +129,7 @@ void MainWindow::onReplyFinished(QNetworkReply *reply)
         {
             case DEEPSEEK_ERROR_CODES_INVALID_FORMAT:           // Invalid Format
                 ui->te_ChatHistory->append("⚠️ Invalid Format: Invalid request body format.");
-                ui->te_ChatHistory->append("💡 Solution: Please modify your request body according to the hints in the error message. For more API format details, please refer to DeepSeek API Docs.");
+                ui->te_ChatHistory->append("💡 Solution: Please modify your request body according to the hints in the error message.\nFor more API format details, please refer to DeepSeek API Docs.");
 
                 // Предложите альтернативу
                 suggestAlternative();
@@ -122,8 +142,36 @@ void MainWindow::onReplyFinished(QNetworkReply *reply)
                 suggestAlternative();
                 break;
             case DEEPSEEK_ERROR_CODES_INSUFFICIENT_BALANCE:
-                ui->te_ChatHistory->append("⚠️ Ошибка баланса: Недостаточно средств на счете API");
-                ui->te_ChatHistory->append("💡 Решение: Пополните баланс на platform.deepseek.com");
+                ui->te_ChatHistory->append("⚠️ Ошибка баланса: Недостаточно средств на счете API.");
+                ui->te_ChatHistory->append("💡 Solution: Пополните баланс на platform.deepseek.com");
+
+                // Предложите альтернативу
+                suggestAlternative();
+            break;
+            case DEEPSEEK_ERROR_CODES_INVALID_PARAMETERS:
+                ui->te_ChatHistory->append("⚠️ Invalid request parameters: Your request contains invalid parameters.");
+                ui->te_ChatHistory->append("💡 Solution: Please modify your request parameters according to the hints in the error message.\nFor more API format details, please refer to DeepSeek API Docs.");
+
+                // Предложите альтернативу
+                suggestAlternative();
+            break;
+            case DEEPSEEK_ERROR_CODES_RATE_LIMIT_REACHED:
+                ui->te_ChatHistory->append("⚠️ Request rate limit exceeded: You are sending requests too quickly.");
+                ui->te_ChatHistory->append("💡 Solution: Please pace your requests reasonably.\nWe also advise users to temporarily switch to the APIs of alternative LLM service providers, like OpenAI.");
+
+                // Предложите альтернативу
+                suggestAlternative();
+            break;
+            case DEEPSEEK_ERROR_CODES_SERVER_ERROR:
+                ui->te_ChatHistory->append("⚠️ Internal server error: Our server encounters an issue.");
+                ui->te_ChatHistory->append("💡 Solution: Please retry your request after a brief wait and contact us if the issue persists.");
+
+                // Предложите альтернативу
+                suggestAlternative();
+            break;
+            case DEEPSEEK_ERROR_CODES_SERVER_OVERLOADED:
+                ui->te_ChatHistory->append("⚠️ Server overloaded due to high traffic: The server is overloaded due to high traffic.");
+                ui->te_ChatHistory->append("💡 Solution: Please retry your request after a brief wait.");
 
                 // Предложите альтернативу
                 suggestAlternative();
