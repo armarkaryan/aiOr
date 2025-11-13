@@ -26,6 +26,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(aiOr
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+        deepseek_error_codes.h
+        api_key_reader.h
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET aiOr APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
