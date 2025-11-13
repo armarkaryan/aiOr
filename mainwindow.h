@@ -30,9 +30,17 @@ private slots:
 private:
     Ui::MainWindow *ui;
     QNetworkAccessManager *networkManager;
-    QString apiKey = "your_deepseek_api_key_here"; //!< AI API-key
+    struct AI
+    {
+        QString model = "deepseek-coder";                              //!<
+        QString url = "https://api.deepseek.com/v1/chat/completions";  //!<
+        QString apiKey = "your_deepseek_api_key_here";                 //!< AI API-key
+        QString max_tokens = "4000";                                   //!<
+        QString temperature = "0.3";                                   //!<
+        QString stream = "false";                                      //!<
+    }ai;
 
-    void sendMessageToDeepSeek(const QString &message);
+    void sendMessageToAI(const QString &message);
     void suggestAlternative();
     void parseResponse(const QByteArray &response);
 };

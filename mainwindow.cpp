@@ -72,13 +72,14 @@ void MainWindow::on_pb_Send_clicked()
         ui->te_Message->clear();
 
         // Отправляем запрос к DeepSeek API
-        sendMessageToDeepSeek(message);
+        sendMessageToAI(message);
     }
 }
 
-void MainWindow::sendMessageToDeepSeek(const QString &message)
+void MainWindow::sendMessageToAI(const QString &message)
 {
-    QUrl url("https://api.deepseek.com/v1/chat/completions");
+    //QUrl url("https://api.deepseek.com/v1/chat/completions");
+    QUrl url(ai.url);
 
     QNetworkRequest request(url);
 
@@ -89,11 +90,13 @@ void MainWindow::sendMessageToDeepSeek(const QString &message)
 
     // Заголовки
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(apiKey).toUtf8());
+    //request.setRawHeader("Authorization", QString("Bearer %1").arg(deepSeekApiKey).toUtf8());
+    request.setRawHeader("Authorization", QString("Bearer %1").arg(ai.apiKey).toUtf8());
 
     // JSON данные
     QJsonObject json;
-    json["model"] = "deepseek-chat";
+    //json["model"] = "deepseek-coder"; // Специализированная модель для программирования
+    json["model"] = ai.model; // Специализированная модель для программирования
 
     QJsonArray messages;
     QJsonObject messageObj;
@@ -102,16 +105,19 @@ void MainWindow::sendMessageToDeepSeek(const QString &message)
     messages.append(messageObj);
 
     json["messages"] = messages;
-    json["max_tokens"] = 1000;
-    json["temperature"] = 0.7;
+    //json["max_tokens"] = 4000; // Увеличил для кода
+    json["max_tokens"] = ai.max_tokens.toInt(); // Увеличил для кода
+    //json["temperature"] = 0.3; // Понизил для более детерминированного кода
+    json["temperature"] = ai.temperature.toDouble(); // Понизил для более детерминированного кода 0.3
     json["stream"] = false;
+    //json["stream"] = ai.stream;
 
     QJsonDocument doc(json);
     QByteArray data = doc.toJson();
 
     // Отправка
     networkManager->post(request, data);
-    ui->statusBar->showMessage("Отправка запроса...");
+    ui->statusBar->showMessage(QString("Send quarry to %1...").arg(ai.model));
 }
 
 void MainWindow::onReplyFinished(QNetworkReply *reply)
