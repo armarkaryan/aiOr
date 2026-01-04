@@ -2,6 +2,7 @@
 #define _MAINWINDOW_H_
 
 #include <QMainWindow>
+#include <QTextEdit>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QJsonDocument>
@@ -53,5 +54,10 @@ private:
     void sendMessageToAI(const QString &message);
     void suggestAlternative();
     void parseResponse(const QByteArray &response);
+
+    // Добавляет Markdown текст в конец с новой строкой
+    void appendMarkdown(QTextEdit* textEdit, const QString& markdown);
+    // Если AI возвращает Markdown, можно преобразовать его в HTML
+    void appendAsHtml(QTextEdit* textEdit, const QString& markdown);
 };
 #endif /* _MAINWINDOW_H_ */

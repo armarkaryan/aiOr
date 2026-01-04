@@ -12,6 +12,9 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    ui->te_ChatHistory->setReadOnly(true); // Только для чтения
+    ui->te_ChatHistory->setAcceptRichText(true); // Поддержка форматирования
+
     connect(networkManager, &QNetworkAccessManager::finished,
             this, &MainWindow::onReplyFinished);
 
@@ -214,7 +217,11 @@ void MainWindow::parseResponse(const QByteArray &response)
                 QJsonObject message = choice["message"].toObject();
                 QString content = message["content"].toString();
 
-                ui->te_ChatHistory->append("DeepSeek: " + content);
+                //ui->te_ChatHistory->append("DeepSeek: " + content);
+                //ui->te_ChatHistory->setMarkdown("Groq: " + content);
+                //ui->te_ChatHistory->append("Groq: " + content);
+                //appendMarkdown(ui->te_ChatHistory, content);
+                appendAsHtml(ui->te_ChatHistory, content);
                 return;
             }
         }
@@ -228,4 +235,36 @@ void MainWindow::parseResponse(const QByteArray &response)
     } else {
         ui->te_ChatHistory->append("Ошибка парсинга ответа");
     }
+}
+
+// Добавляет Markdown текст в конец с новой строкой
+void MainWindow::appendMarkdown(QTextEdit* textEdit, const QString& markdown) {
+    // Получаем текущий текст в формате Markdown
+    QString currentText = textEdit->toMarkdown();
+
+    // Добавляем новую строку и новый текст
+    if (!currentText.isEmpty() && !currentText.endsWith('\n')) {
+        currentText += '\n';
+    }
+    currentText += markdown;
+
+    // Устанавливаем обновленный текст
+    textEdit->setMarkdown(currentText);
+}
+
+// Если AI возвращает Markdown, можно преобразовать его в HTML
+void MainWindow::appendAsHtml(QTextEdit* textEdit, const QString& markdown) {
+    QTextEdit tempEdit;
+    //tempEdit.setMarkdown(markdown);
+    tempEdit.setHtml(markdown);
+    QString html = tempEdit.toHtml();
+
+    // Удаляем лишние HTML-теги (оставляем только содержимое body)
+    int bodyStart = html.indexOf("<body>");
+    int bodyEnd = html.indexOf("</body>");
+    if (bodyStart != -1 && bodyEnd != -1) {
+        html = html.mid(bodyStart + 6, bodyEnd - bodyStart - 6);
+    }
+
+    textEdit->append(html); // append() работает с HTML
 }

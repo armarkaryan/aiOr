@@ -28,6 +28,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${PROJECT_SOURCES}
         deepseek_error_codes.h
         api_key_reader.h
+        groq_error_codes.h
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET aiOr APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
