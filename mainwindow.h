@@ -30,6 +30,7 @@ private slots:
 private:
     Ui::MainWindow *ui;
     QNetworkAccessManager *networkManager;
+/*
     struct AI
     {
         QString model = "deepseek-coder";                              //!<
@@ -39,7 +40,16 @@ private:
         QString temperature = "0.3";                                   //!<
         QString stream = "false";                                      //!<
     }ai;
-
+*/
+    struct AI
+    {
+        QString model = "llama-3.3-70b-versatile";                              //!<
+        QString url = "https://api.groq.com/openai/v1/chat/completions";  //!<
+        QString apiKey = "your_groq_api_key_here";                 //!< AI API-key
+        QString max_tokens = "4000";                                   //!<
+        QString temperature = "0.3";                                   //!<
+        QString stream = "false";                                      //!<
+    }ai;
     void sendMessageToAI(const QString &message);
     void suggestAlternative();
     void parseResponse(const QByteArray &response);

@@ -33,6 +33,7 @@ MainWindow::MainWindow(QWidget *parent)
 
         // Используйте apiKey в вашем коде
         // Например: your_api_function(apiKey);
+        ai.apiKey = apiKey;
 
     } else {
         qCritical() << "❌ Не удалось загрузить API ключ!";
