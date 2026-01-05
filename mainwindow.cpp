@@ -220,8 +220,8 @@ void MainWindow::parseResponse(const QByteArray &response)
                 //ui->te_ChatHistory->append("DeepSeek: " + content);
                 //ui->te_ChatHistory->setMarkdown("Groq: " + content);
                 //ui->te_ChatHistory->append("Groq: " + content);
-                //appendMarkdown(ui->te_ChatHistory, content);
-                appendAsHtml(ui->te_ChatHistory, content);
+                appendMarkdown(ui->te_ChatHistory, "Groq: " + content);
+                //appendAsHtml(ui->te_ChatHistory, "Groq: " + content);
                 return;
             }
         }
