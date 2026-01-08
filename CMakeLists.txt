@@ -9,6 +9,9 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ВАЖНО: Добавьте эту строку
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network LinguistTools)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network LinguistTools)
 
@@ -29,6 +32,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         deepseek_error_codes.h
         api_key_reader.h
         groq_error_codes.h
+        chatlist.h chatlist.cpp chatlist.ui
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET aiOr APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR

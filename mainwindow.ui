@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>407</width>
-    <height>521</height>
+    <width>685</width>
+    <height>569</height>
    </rect>
   </property>
   <widget class="QWidget" name="centralwidget">
@@ -82,7 +82,7 @@
     </item>
    </layout>
   </widget>
-  <widget class="QStatusBar" name="statusBar"/>
+  <widget class="QStatusBar" name="sb_Main"/>
   <widget class="QDockWidget" name="dw_ChatList">
    <property name="windowTitle">
     <string>Chat List</string>
@@ -91,54 +91,22 @@
     <number>1</number>
    </attribute>
    <widget class="QWidget" name="dockWidgetContents">
-    <layout class="QVBoxLayout" name="verticalLayout_3">
+    <layout class="QVBoxLayout" name="vl_ChatListMain">
      <item>
-      <widget class="QToolBox" name="toolBox">
-       <property name="currentIndex">
-        <number>0</number>
-       </property>
-       <widget class="QWidget" name="page">
-        <property name="geometry">
-         <rect>
-          <x>0</x>
-          <y>0</y>
-          <width>79</width>
-          <height>368</height>
-         </rect>
-        </property>
-        <attribute name="label">
-         <string>Page 1</string>
-        </attribute>
-       </widget>
-       <widget class="QWidget" name="page_2">
-        <property name="geometry">
-         <rect>
-          <x>0</x>
-          <y>0</y>
-          <width>79</width>
-          <height>368</height>
-         </rect>
-        </property>
-        <attribute name="label">
-         <string>Page 2</string>
-        </attribute>
-       </widget>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="pb_Settings">
-       <property name="text">
-        <string>Settings...</string>
-       </property>
-       <property name="icon">
-        <iconset theme="QIcon::ThemeIcon::DocumentProperties"/>
-       </property>
-      </widget>
+      <widget class="ChatList" name="w_ChatList" native="true"/>
      </item>
     </layout>
    </widget>
   </widget>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ChatList</class>
+   <extends>QWidget</extends>
+   <header>chatlist.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
