@@ -5,6 +5,9 @@
 #include <QJsonArray>
 #include <QMessageBox>
 
+#include "deepseek_error_codes.h"
+#include "api_key_reader.h"
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)

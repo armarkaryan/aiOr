@@ -8,9 +8,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
-#include "deepseek_error_codes.h"
-#include "api_key_reader.h"
-
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
