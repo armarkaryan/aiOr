@@ -121,12 +121,12 @@ void MainWindow::sendMessageToAI(const QString &message)
 
     // Отправка
     networkManager->post(request, data);
-    ui->statusBar->showMessage(QString("Send quarry to %1...").arg(ai.model));
+    ui->sb_Main->showMessage(QString("Send quarry to %1...").arg(ai.model));
 }
 
 void MainWindow::onReplyFinished(QNetworkReply *reply)
 {
-    ui->statusBar->clearMessage();
+    ui->sb_Main->clearMessage();
 
     if (reply->error() == QNetworkReply::NoError) {
         QByteArray response = reply->readAll();
