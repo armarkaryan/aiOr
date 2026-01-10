@@ -98,12 +98,18 @@
        <property name="text">
         <string>...</string>
        </property>
+       <property name="icon">
+        <iconset theme="QIcon::ThemeIcon::GoUp"/>
+       </property>
       </widget>
      </item>
      <item>
       <widget class="QToolButton" name="tb_ChatMoveDown">
        <property name="text">
         <string>...</string>
+       </property>
+       <property name="icon">
+        <iconset theme="QIcon::ThemeIcon::GoDown"/>
        </property>
       </widget>
      </item>
@@ -139,12 +145,18 @@
        <property name="text">
         <string>...</string>
        </property>
+       <property name="icon">
+        <iconset theme="QIcon::ThemeIcon::FolderNew"/>
+       </property>
       </widget>
      </item>
      <item>
       <widget class="QToolButton" name="tb_ChatRemove">
        <property name="text">
         <string>...</string>
+       </property>
+       <property name="icon">
+        <iconset theme="QIcon::ThemeIcon::EditDelete"/>
        </property>
       </widget>
      </item>
