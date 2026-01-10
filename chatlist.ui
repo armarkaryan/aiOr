@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>263</width>
-    <height>562</height>
+    <height>477</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Chat List</string>
   </property>
-  <layout class="QVBoxLayout" name="vl_ChatListMain">
+  <layout class="QVBoxLayout" name="vl_Main">
    <item>
     <layout class="QHBoxLayout" name="hl_ChatListFind">
      <item>
@@ -45,36 +45,116 @@
     </layout>
    </item>
    <item>
-    <widget class="QToolBox" name="tb_ChatList">
-     <property name="currentIndex">
-      <number>0</number>
+    <widget class="QTreeWidget" name="tw_ChatList">
+     <property name="dragDropMode">
+      <enum>QAbstractItemView::DragDropMode::InternalMove</enum>
      </property>
-     <widget class="QWidget" name="page">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>245</width>
-        <height>406</height>
-       </rect>
+     <column>
+      <property name="text">
+       <string>AI Name</string>
       </property>
-      <attribute name="label">
-       <string>Page 1</string>
-      </attribute>
-     </widget>
-     <widget class="QWidget" name="page_2">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>245</width>
-        <height>406</height>
-       </rect>
+     </column>
+     <item>
+      <property name="text">
+       <string>New chat</string>
       </property>
-      <attribute name="label">
-       <string>Page 2</string>
-      </attribute>
-     </widget>
+      <item>
+       <property name="text">
+        <string>New Subitem</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>New Subitem</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>New Subitem</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>New Item</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>New Item</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>New Item</string>
+       </property>
+      </item>
+     </item>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QToolButton" name="tb_ChatMoveUp">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="tb_ChatMoveDown">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="toolButton_3">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="toolButton_4">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QToolButton" name="tb_ChatAdd">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="tb_ChatRemove">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="Line" name="line_Buttom">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
     </widget>
    </item>
    <item>
