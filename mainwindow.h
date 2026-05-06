@@ -28,26 +28,29 @@ private slots:
 private:
     Ui::MainWindow *ui;
     QNetworkAccessManager *networkManager;
+
+    struct AI
+    {
+        // QString model = "deepseek-coder";                                   //!< Платно
+        QString model = "deepseek-chat";                                    //!< Бесплатно
+        QString url = "https://api.deepseek.com/v1/chat/completions";       //!<
+        QString apiKey = "your_deepseek_api_key_here";                      //!< AI API-key
+        QString max_tokens = "4000";                                        //!< Верно (но бесплатно до 4096)
+        QString temperature = "0.3";                                        //!<
+        QString stream = "false";                                           //!<
+    }ai;
+
 /*
     struct AI
     {
-        QString model = "deepseek-coder";                              //!<
-        QString url = "https://api.deepseek.com/v1/chat/completions";  //!<
-        QString apiKey = "your_deepseek_api_key_here";                 //!< AI API-key
-        QString max_tokens = "4000";                                   //!<
-        QString temperature = "0.3";                                   //!<
-        QString stream = "false";                                      //!<
+        QString model = "llama-3.3-70b-versatile";                          //!<
+        QString url = "https://api.groq.com/openai/v1/chat/completions";    //!<
+        QString apiKey = "your_groq_api_key_here";                          //!< AI API-key
+        QString max_tokens = "4000";                                        //!<
+        QString temperature = "0.3";                                        //!<
+        QString stream = "false";                                           //!<
     }ai;
 */
-    struct AI
-    {
-        QString model = "llama-3.3-70b-versatile";                              //!<
-        QString url = "https://api.groq.com/openai/v1/chat/completions";  //!<
-        QString apiKey = "your_groq_api_key_here";                 //!< AI API-key
-        QString max_tokens = "4000";                                   //!<
-        QString temperature = "0.3";                                   //!<
-        QString stream = "false";                                      //!<
-    }ai;
     void sendMessageToAI(const QString &message);
     void suggestAlternative();
     void parseResponse(const QByteArray &response);

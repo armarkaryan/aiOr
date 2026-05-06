@@ -28,7 +28,8 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle("aiOr - AI Chat Client");
 
     //
-    QString filePath = "api.key";
+    // QString filePath = "api_groq.key";
+    QString filePath = "api_deepseek.key";
     QString apiKey = ApiKeyReader::readApiKey(filePath);
 
     if (!apiKey.isEmpty()) {
