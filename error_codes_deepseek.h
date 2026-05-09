@@ -108,4 +108,4 @@
 
 /** @} */ // end of group error_codes
 
-#endif /* ERROR_CODES_DEEPSEEK_H_ */
+#endif /* _ERROR_CODES_DEEPSEEK_H_ */
