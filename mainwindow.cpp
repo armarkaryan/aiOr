@@ -7,7 +7,7 @@
  *
  * @author      Arthur Markaryan
  * @date        09.05.2026
- * @version     1.3.5
+ * @version     1.3.6
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -17,8 +17,10 @@
  * - error_codes_deepseek.h (DeepSeek API error codes)
  * - error_codes_groq.h (Groq API error codes)
  * - api_key_reader.h (API key utility)
+ * - aisettings.h (AI settings dialog)
  *
  * @par ChangeLog:
+ * 09.05.2026   v1.3.6  Arthur Markaryan - Add AI settings window integration
  * 09.05.2026   v1.3.5  Arthur Markaryan - Modify header of the file
  * 06.05.2026   v1.3.4  Arthur Markaryan - Add deepseek API-key by default
  * 09.01.2026   v1.3.3  Arthur Markaryan - Replace includes from .h to .cpp file
@@ -33,14 +35,17 @@
  *
  * @see         MainWindow
  * @see         ApiKeyReader
+ * @see         AiSettings
  */
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "aisettings.h"
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QJsonArray>
 #include <QMessageBox>
+#include <QDebug>
 
 #include "error_codes_deepseek.h"
 #include "error_codes_groq.h"
@@ -60,9 +65,12 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    // Initialize AI providers
+    initializeProviders();
+
     // Configure chat history display
-    ui->te_ChatHistory->setReadOnly(true);		// Read-only for display only
-    ui->te_ChatHistory->setAcceptRichText(true);	// Enable rich text formatting
+    ui->te_ChatHistory->setReadOnly(true);      // Read-only for display only
+    ui->te_ChatHistory->setAcceptRichText(true);    // Enable rich text formatting
 
     // Connect network manager signals
     connect(networkManager, &QNetworkAccessManager::finished,
@@ -71,6 +79,12 @@ MainWindow::MainWindow(QWidget *parent)
     // Connect SSL error handler
     connect(networkManager, &QNetworkAccessManager::sslErrors,
             this, &MainWindow::onSslErrors);
+
+    // Connect UI signals
+    // connect(ui->tb_AI_Settings, &QToolButton::clicked,
+    //         this, &MainWindow::on_tb_AI_Settings_clicked);
+    // connect(ui->cb_AI, QOverload<int>::of(&QComboBox::currentIndexChanged),
+    //         this, &MainWindow::on_cb_AI_currentIndexChanged);
 
     setWindowTitle("aiOr - AI Chat Client");
 
@@ -94,6 +108,9 @@ MainWindow::MainWindow(QWidget *parent)
         qCritical() << "❗️Make sure the file 'api.key' exists and contains your API key!";
         ui->te_ChatHistory->append("❗️Make sure the file 'api.key' exists and contains your API key!");
     }
+
+    // Set default provider based on combo box selection
+    updateAIConfiguration(ui->cb_AI->currentIndex());
 }
 
 /**
@@ -148,6 +165,51 @@ void MainWindow::on_pb_Send_clicked()
 }
 
 /**
+ * @brief       Handles click events on the AI Settings button.
+ * @details     Opens the AI settings window where users can configure
+ *              API keys, model parameters, and other AI-related settings.
+ */
+void MainWindow::on_tb_AI_Settings_clicked()
+{
+    qDebug() << "Settings button clicked!"; // Для отладки
+
+    // Create settings dialog (non-modal to allow main window interaction)
+    AiSettings *settingsDialog = new AiSettings(this);
+
+    // Configure the settings window
+    settingsDialog->setWindowTitle("AI Settings");
+    settingsDialog->setAttribute(Qt::WA_DeleteOnClose); // Auto-delete on close
+
+    // Set current values from AI configuration
+    // Note: You'll need to add getter/setter methods in AiSettings class
+    // For now, we'll just show the window
+
+    // Connect signals to receive settings changes
+    connect(settingsDialog, &AiSettings::settingsChanged, this, [this]() {
+        // This slot will be called when settings are applied
+        // You'll need to implement this signal in AiSettings class
+        ui->sb_Main->showMessage("AI settings updated", 3000);
+        // Update current configuration based on new settings
+        updateAIConfiguration(ui->cb_AI->currentIndex());
+    });
+
+    settingsDialog->show();
+}
+
+/**
+ * @brief       Handles AI provider selection change.
+ * @param       index   Index of the selected AI provider in combo box
+ * @details     Updates the AI configuration based on the selected provider.
+ */
+void MainWindow::on_cb_AI_currentIndexChanged(int index)
+{
+    if (index >= 0 && index < providers.size()) {
+        updateAIConfiguration(index);
+        ui->sb_Main->showMessage(QString("Switched to %1").arg(providers[index].name), 2000);
+    }
+}
+
+/**
  * @brief       Sends a message to the AI API.
  * @param       message User message text to send
  * @details     Constructs a JSON payload with the message, model parameters,
@@ -171,7 +233,7 @@ void MainWindow::sendMessageToAI(const QString &message)
 
     // JSON payload
     QJsonObject json;
-    json["model"] = ai.model;	// AI model selection
+    json["model"] = ai.model;   // AI model selection
 
     QJsonArray messages;
     QJsonObject messageObj;
@@ -180,9 +242,9 @@ void MainWindow::sendMessageToAI(const QString &message)
     messages.append(messageObj);
 
     json["messages"] = messages;
-    json["max_tokens"] = ai.max_tokens.toInt();	// Token limit
-    json["temperature"] = ai.temperature.toDouble();	// Sampling temperature (0.3 for deterministic output)
-    json["stream"] = false;	// Streaming disabled
+    json["max_tokens"] = ai.max_tokens.toInt(); // Token limit
+    json["temperature"] = ai.temperature.toDouble();   // Sampling temperature (0.3 for deterministic output)
+    json["stream"] = false; // Streaming disabled
 
     QJsonDocument doc(json);
     QByteArray data = doc.toJson();
@@ -213,37 +275,37 @@ void MainWindow::onReplyFinished(QNetworkReply *reply)
 
         switch(httpCode)
         {
-        case ERROR_CODES_DEEPSEEK_INVALID_FORMAT:		// 400 - Invalid Format
+        case ERROR_CODES_DEEPSEEK_INVALID_FORMAT:       // 400 - Invalid Format
             ui->te_ChatHistory->append("⚠️ Invalid Format: Invalid request body format.");
             ui->te_ChatHistory->append("💡 Solution: Please modify your request body according to the hints in the error message.\nFor more API format details, please refer to DeepSeek API Docs.");
             suggestAlternative();
             break;
-        case ERROR_CODES_DEEPSEEK_AUTHENTICATION_FAILS:		// 401 - Authentication Fails
+        case ERROR_CODES_DEEPSEEK_AUTHENTICATION_FAILS:     // 401 - Authentication Fails
             ui->te_ChatHistory->append("⚠️ Authentication Fails: Authentication fails due to the wrong API key.");
             ui->te_ChatHistory->append("💡 Solution: Please check your API key. If you don't have one, please create an API key first.");
             suggestAlternative();
             break;
-        case ERROR_CODES_DEEPSEEK_INSUFFICIENT_BALANCE:	// 402 - Insufficient Balance
+        case ERROR_CODES_DEEPSEEK_INSUFFICIENT_BALANCE: // 402 - Insufficient Balance
             ui->te_ChatHistory->append("⚠️ Balance Error: Insufficient funds on API account.");
             ui->te_ChatHistory->append("💡 Solution: Top up your balance at platform.deepseek.com");
             suggestAlternative();
             break;
-        case ERROR_CODES_DEEPSEEK_INVALID_PARAMETERS:		// 422 - Invalid Parameters
+        case ERROR_CODES_DEEPSEEK_INVALID_PARAMETERS:       // 422 - Invalid Parameters
             ui->te_ChatHistory->append("⚠️ Invalid request parameters: Your request contains invalid parameters.");
             ui->te_ChatHistory->append("💡 Solution: Please modify your request parameters according to the hints in the error message.\nFor more API format details, please refer to DeepSeek API Docs.");
             suggestAlternative();
             break;
-        case ERROR_CODES_DEEPSEEK_RATE_LIMIT_REACHED:		// 429 - Rate Limit Reached
+        case ERROR_CODES_DEEPSEEK_RATE_LIMIT_REACHED:       // 429 - Rate Limit Reached
             ui->te_ChatHistory->append("⚠️ Request rate limit exceeded: You are sending requests too quickly.");
             ui->te_ChatHistory->append("💡 Solution: Please pace your requests reasonably.\nWe also advise users to temporarily switch to the APIs of alternative LLM service providers, like OpenAI.");
             suggestAlternative();
             break;
-        case ERROR_CODES_DEEPSEEK_SERVER_ERROR:			// 500 - Server Error
+        case ERROR_CODES_DEEPSEEK_SERVER_ERROR:         // 500 - Server Error
             ui->te_ChatHistory->append("⚠️ Internal server error: Our server encounters an issue.");
             ui->te_ChatHistory->append("💡 Solution: Please retry your request after a brief wait and contact us if the issue persists.");
             suggestAlternative();
             break;
-        case ERROR_CODES_DEEPSEEK_SERVER_OVERLOADED:		// 503 - Server Overloaded
+        case ERROR_CODES_DEEPSEEK_SERVER_OVERLOADED:        // 503 - Server Overloaded
             ui->te_ChatHistory->append("⚠️ Server overloaded due to high traffic: The server is overloaded due to high traffic.");
             ui->te_ChatHistory->append("💡 Solution: Please retry your request after a brief wait.");
             suggestAlternative();
@@ -351,5 +413,86 @@ void MainWindow::appendAsHtml(QTextEdit* textEdit, const QString& markdown)
         html = html.mid(bodyStart + 6, bodyEnd - bodyStart - 6);
     }
 
-    textEdit->append(html);	// append() works with HTML
+    textEdit->append(html); // append() works with HTML
+}
+
+/**
+ * @brief       Initializes AI provider configurations.
+ * @details     Sets up the list of available AI providers with their
+ *              respective models, API endpoints, and default settings.
+ */
+void MainWindow::initializeProviders()
+{
+    providers.append({
+        "Deep Seek",
+        "deepseek-chat",
+        "https://api.deepseek.com/v1/chat/completions",
+        "", // Will be loaded from file
+        "4000",
+        "0.3"
+    });
+
+    providers.append({
+        "Groq",
+        "llama-3.3-70b-versatile",
+        "https://api.groq.com/openai/v1/chat/completions",
+        "", // Will be loaded from file
+        "4000",
+        "0.3"
+    });
+
+    providers.append({
+        "Qwen",
+        "qwen-turbo",
+        "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+        "", // Will be loaded from file
+        "2000",
+        "0.3"
+    });
+}
+
+/**
+ * @brief       Updates AI configuration based on selected provider.
+ * @param       providerIndex Index of the selected provider
+ * @details     Loads the configuration for the specified provider and
+ *              updates the ai structure with the new settings.
+ */
+void MainWindow::updateAIConfiguration(int providerIndex)
+{
+    if (providerIndex < 0 || providerIndex >= providers.size()) {
+        return;
+    }
+
+    const ProviderConfig &config = providers[providerIndex];
+
+    ai.selectedProvider = providerIndex;
+    ai.model = config.model;
+    ai.url = config.url;
+    ai.max_tokens = config.maxTokens;
+    ai.temperature = config.temperature;
+
+    // Try to load API key from provider-specific file
+    QString filePath;
+    switch(providerIndex) {
+    case 0: // DeepSeek
+        filePath = "api_deepseek.key";
+        break;
+    case 1: // Groq
+        filePath = "api_groq.key";
+        break;
+    case 2: // Qwen
+        filePath = "api_qwen.key";
+        break;
+    default:
+        filePath = "api.key";
+        break;
+    }
+
+    QString apiKey = ApiKeyReader::readApiKey(filePath);
+    if (!apiKey.isEmpty()) {
+        ai.apiKey = apiKey;
+        qDebug() << "Loaded API key for" << config.name << "from" << filePath;
+    } else {
+        qDebug() << "No API key found for" << config.name << "using default";
+    }
 }

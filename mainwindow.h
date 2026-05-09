@@ -7,7 +7,7 @@
  *
  * @author      Arthur Markaryan
  * @date        09.05.2026
- * @version     1.3.5
+ * @version     1.3.6
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -17,6 +17,7 @@
  * - Qt5/6 Json (QJsonDocument, QJsonObject)
  *
  * @par ChangeLog:
+ * 09.05.2026   v1.3.6  Arthur Markaryan - Add AI settings window integration
  * 09.05.2026   v1.3.5  Arthur Markaryan - Modify header of the file
  * 06.05.2026   v1.3.4  Arthur Markaryan - Add deepseek API-key by default
  * 09.01.2026   v1.3.3  Arthur Markaryan - Replace includes from .h to .cpp file
@@ -96,9 +97,23 @@ private slots:
      */
     void onReplyFinished(QNetworkReply *reply);
 
+    /**
+     * @brief       Handles click events on the AI Settings button.
+     * @details     Opens the AI settings window where users can configure
+     *              API keys, model parameters, and other AI-related settings.
+     */
+    void on_tb_AI_Settings_clicked();
+
+    /**
+     * @brief       Handles AI provider selection change.
+     * @param       index   Index of the selected AI provider in combo box
+     * @details     Updates the AI configuration based on the selected provider.
+     */
+    void on_cb_AI_currentIndexChanged(int index);
+
 private:
-    Ui::MainWindow *ui;				///< Pointer to the UI components generated from .ui file
-    QNetworkAccessManager *networkManager;	///< Manages network requests to AI APIs
+    Ui::MainWindow *ui;                         ///< Pointer to the UI components generated from .ui file
+    QNetworkAccessManager *networkManager;      ///< Manages network requests to AI APIs
 
     /**
      * @struct     AI
@@ -113,30 +128,31 @@ private:
      * @var        AI::max_tokens  Maximum number of tokens in response
      * @var        AI::temperature Sampling temperature (0.0 to 1.0)
      * @var        AI::stream      Enable/disable streaming responses
+     * @var        AI::selectedProvider Index of selected AI provider (0=DeepSeek, 1=Groq, 2=Qwen)
      */
     struct AI
     {
-        // QString model = "deepseek-coder";					//!< Paid model
-        QString model = "deepseek-chat";					//!< Free model
-        QString url = "https://api.deepseek.com/v1/chat/completions";	//!< DeepSeek API endpoint
-        QString apiKey = "your_deepseek_api_key_here";			//!< AI API key
-        QString max_tokens = "4000";						//!< Correct (free up to 4096)
-        QString temperature = "0.3";						//!< Sampling temperature
-        QString stream = "false";						//!< Streaming disabled
+        QString model = "deepseek-chat";                    //!< Free model
+        QString url = "https://api.deepseek.com/v1/chat/completions";   //!< DeepSeek API endpoint
+        QString apiKey = "your_deepseek_api_key_here";      //!< AI API key
+        QString max_tokens = "4000";                        //!< Correct (free up to 4096)
+        QString temperature = "0.3";                        //!< Sampling temperature
+        QString stream = "false";                           //!< Streaming disabled
+        int selectedProvider = 0;                           //!< 0: DeepSeek, 1: Groq, 2: Qwen
     } ai;
 
-    /*
-    // Alternative configuration for Groq API (commented out)
-    struct AI
+    // Provider configurations
+    struct ProviderConfig
     {
-        QString model = "llama-3.3-70b-versatile";				//!< Groq model
-        QString url = "https://api.groq.com/openai/v1/chat/completions";	//!< Groq API endpoint
-        QString apiKey = "your_groq_api_key_here";				//!< AI API key
-        QString max_tokens = "4000";						//!< Token limit
-        QString temperature = "0.3";						//!< Sampling temperature
-        QString stream = "false";						//!< Streaming disabled
-    } ai;
-*/
+        QString name;
+        QString model;
+        QString url;
+        QString defaultApiKey;
+        QString maxTokens;
+        QString temperature;
+    };
+
+    QList<ProviderConfig> providers;                        ///< List of available AI providers
 
     /**
      * @brief       Sends a message to the AI API.
@@ -180,6 +196,21 @@ private:
      *              Useful for rendering formatted text, code blocks, lists, etc.
      */
     void appendAsHtml(QTextEdit* textEdit, const QString& markdown);
+
+    /**
+     * @brief       Initializes AI provider configurations.
+     * @details     Sets up the list of available AI providers with their
+     *              respective models, API endpoints, and default settings.
+     */
+    void initializeProviders();
+
+    /**
+     * @brief       Updates AI configuration based on selected provider.
+     * @param       providerIndex Index of the selected provider
+     * @details     Loads the configuration for the specified provider and
+     *              updates the ai structure with the new settings.
+     */
+    void updateAIConfiguration(int providerIndex);
 };
 
 #endif /* _MAINWINDOW_H_ */
