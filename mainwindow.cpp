@@ -5,7 +5,8 @@
 #include <QJsonArray>
 #include <QMessageBox>
 
-#include "deepseek_error_codes.h"
+#include "error_codes_deepseek.h"
+#include "error_codes_groq.h"
 #include "api_key_reader.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -141,49 +142,49 @@ void MainWindow::onReplyFinished(QNetworkReply *reply)
 
         switch(httpCode)
         {
-            case DEEPSEEK_ERROR_CODES_INVALID_FORMAT:           // Invalid Format
+            case ERROR_CODES_DEEPSEEK_INVALID_FORMAT:           // Invalid Format
                 ui->te_ChatHistory->append("⚠️ Invalid Format: Invalid request body format.");
                 ui->te_ChatHistory->append("💡 Solution: Please modify your request body according to the hints in the error message.\nFor more API format details, please refer to DeepSeek API Docs.");
 
                 // Предложите альтернативу
                 suggestAlternative();
             break;
-            case DEEPSEEK_ERROR_CODES_AUTHENTICATION_FAILS:     // Authentication Fails
+            case ERROR_CODES_DEEPSEEK_AUTHENTICATION_FAILS:     // Authentication Fails
                 ui->te_ChatHistory->append("⚠️ Authentication Fails: Authentication fails due to the wrong API key.");
                 ui->te_ChatHistory->append("💡 Solution: Please check your API key. If you don't have one, please create an API key first.");
 
                 // Предложите альтернативу
                 suggestAlternative();
                 break;
-            case DEEPSEEK_ERROR_CODES_INSUFFICIENT_BALANCE:
+            case ERROR_CODES_DEEPSEEK_INSUFFICIENT_BALANCE:
                 ui->te_ChatHistory->append("⚠️ Ошибка баланса: Недостаточно средств на счете API.");
                 ui->te_ChatHistory->append("💡 Solution: Пополните баланс на platform.deepseek.com");
 
                 // Предложите альтернативу
                 suggestAlternative();
             break;
-            case DEEPSEEK_ERROR_CODES_INVALID_PARAMETERS:
+            case ERROR_CODES_DEEPSEEK_INVALID_PARAMETERS:
                 ui->te_ChatHistory->append("⚠️ Invalid request parameters: Your request contains invalid parameters.");
                 ui->te_ChatHistory->append("💡 Solution: Please modify your request parameters according to the hints in the error message.\nFor more API format details, please refer to DeepSeek API Docs.");
 
                 // Предложите альтернативу
                 suggestAlternative();
             break;
-            case DEEPSEEK_ERROR_CODES_RATE_LIMIT_REACHED:
+            case ERROR_CODES_DEEPSEEK_RATE_LIMIT_REACHED:
                 ui->te_ChatHistory->append("⚠️ Request rate limit exceeded: You are sending requests too quickly.");
                 ui->te_ChatHistory->append("💡 Solution: Please pace your requests reasonably.\nWe also advise users to temporarily switch to the APIs of alternative LLM service providers, like OpenAI.");
 
                 // Предложите альтернативу
                 suggestAlternative();
             break;
-            case DEEPSEEK_ERROR_CODES_SERVER_ERROR:
+            case ERROR_CODES_DEEPSEEK_SERVER_ERROR:
                 ui->te_ChatHistory->append("⚠️ Internal server error: Our server encounters an issue.");
                 ui->te_ChatHistory->append("💡 Solution: Please retry your request after a brief wait and contact us if the issue persists.");
 
                 // Предложите альтернативу
                 suggestAlternative();
             break;
-            case DEEPSEEK_ERROR_CODES_SERVER_OVERLOADED:
+            case ERROR_CODES_DEEPSEEK_SERVER_OVERLOADED:
                 ui->te_ChatHistory->append("⚠️ Server overloaded due to high traffic: The server is overloaded due to high traffic.");
                 ui->te_ChatHistory->append("💡 Solution: Please retry your request after a brief wait.");
 
