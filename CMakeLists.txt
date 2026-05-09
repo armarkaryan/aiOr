@@ -30,8 +30,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         error_codes_deepseek.h
-        api_key_reader.h
         error_codes_groq.h
+        api_key_reader.h
         chatlist.h chatlist.cpp chatlist.ui
     )
 # Define target properties for Android with Qt 6 as:
