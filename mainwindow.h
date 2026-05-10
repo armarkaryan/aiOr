@@ -7,11 +7,12 @@
  *
  * @author      Arthur Markaryan
  * @date        10.05.2026
- * @version     1.4.1
+ * @version     1.4.2
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
  * @par ChangeLog:
+ * 10.05.2026   v1.4.2  Arthur Markaryan - Add assistant name display instead of generic "AI:"
  * 10.05.2026   v1.4.1  Arthur Markaryan - Fix streaming response handling
  * 10.05.2026   v1.4.0  Arthur Markaryan - Integrate AI settings profiles with main window
  * 09.05.2026   v1.3.6  Arthur Markaryan - Add AI settings window integration
@@ -142,6 +143,7 @@ private:
     QNetworkReply *m_currentReply;              ///< Current network reply for streaming operations
     QByteArray m_streamBuffer;                  ///< Buffer for incomplete streaming data chunks
     QString m_streamingContent;                 ///< Accumulated streaming response content
+    QString m_currentAssistantName;             ///< Name of the currently selected assistant
 
     /**
      * @struct     AI
@@ -241,11 +243,12 @@ private:
      * @brief       Appends Markdown text to a QTextEdit widget.
      * @param       textEdit    Target QTextEdit widget
      * @param       markdown    Markdown text to append
+     * @param       prefix      Optional prefix for the message (default is "AI: ")
      * @details     Retrieves the current markdown content, appends the new text
      *              with a new line separator, and sets the updated markdown back.
      *              Preserves existing formatting and content.
      */
-    void appendMarkdown(QTextEdit* textEdit, const QString& markdown);
+    void appendMarkdown(QTextEdit* textEdit, const QString& markdown, const QString& prefix = "");
 
     /**
      * @brief       Appends Markdown converted to HTML.

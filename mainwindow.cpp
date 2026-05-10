@@ -7,7 +7,7 @@
  *
  * @author      Arthur Markaryan
  * @date        10.05.2026
- * @version     1.4.1
+ * @version     1.4.2
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -20,6 +20,7 @@
  * - api_key_reader.h (API key utility)
  *
  * @par ChangeLog:
+ * 10.05.2026   v1.4.2  Arthur Markaryan - Add assistant name display instead of generic "AI:"
  * 10.05.2026   v1.4.1  Arthur Markaryan - Fix streaming response handling
  * 09.05.2026   v1.4.0  Arthur Markaryan - Integrate AI settings profiles with main window
  * 09.05.2026   v1.3.6  Arthur Markaryan - Add AI settings window integration
@@ -437,23 +438,24 @@ void MainWindow::parseStreamChunk(const QByteArray &chunk)
                                 // Update display in real-time
                                 QString currentText = ui->te_ChatHistory->toMarkdown();
 
-                                // Remove last line if it starts with "AI: " to avoid duplication
+                                // Remove last line if it starts with assistant name to avoid duplication
                                 int lastNewline = currentText.lastIndexOf('\n');
                                 if (lastNewline != -1)
                                 {
                                     QString lastLine = currentText.mid(lastNewline + 1);
-                                    if (lastLine.startsWith("AI: "))
+                                    QString prefix = m_currentAssistantName + ": ";
+                                    if (lastLine.startsWith(prefix))
                                     {
                                         currentText = currentText.left(lastNewline);
                                     }
                                 }
 
-                                // Add updated content
+                                // Add updated content with assistant name
                                 if (!currentText.isEmpty() && !currentText.endsWith('\n'))
                                 {
                                     currentText += '\n';
                                 }
-                                currentText += "AI: " + m_streamingContent;
+                                currentText += m_currentAssistantName + ": " + m_streamingContent;
                                 ui->te_ChatHistory->setMarkdown(currentText);
 
                                 // Auto-scroll to bottom
@@ -482,23 +484,24 @@ void MainWindow::finalizeStreamingResponse()
         // Ensure the final response is properly displayed
         QString currentText = ui->te_ChatHistory->toMarkdown();
 
-        // Remove last line if it starts with "AI: " to avoid duplication
+        // Remove last line if it starts with assistant name to avoid duplication
         int lastNewline = currentText.lastIndexOf('\n');
         if (lastNewline != -1)
         {
             QString lastLine = currentText.mid(lastNewline + 1);
-            if (lastLine.startsWith("AI: "))
+            QString prefix = m_currentAssistantName + ": ";
+            if (lastLine.startsWith(prefix))
             {
                 currentText = currentText.left(lastNewline);
             }
         }
 
-        // Add final content
+        // Add final content with assistant name
         if (!currentText.isEmpty() && !currentText.endsWith('\n'))
         {
             currentText += '\n';
         }
-        currentText += "AI: " + m_streamingContent;
+        currentText += m_currentAssistantName + ": " + m_streamingContent;
         ui->te_ChatHistory->setMarkdown(currentText);
 
         qDebug() << "Streaming response completed, length:" << m_streamingContent.length();
@@ -776,7 +779,8 @@ void MainWindow::parseResponse(const QByteArray &response)
                     QString content = message["content"].toString();
                     if (!content.isEmpty())
                     {
-                        appendMarkdown(ui->te_ChatHistory, "AI: " + content);
+                        // Use assistant name as prefix
+                        appendMarkdown(ui->te_ChatHistory, content, m_currentAssistantName + ": ");
                         return;
                     }
                 }
@@ -787,7 +791,8 @@ void MainWindow::parseResponse(const QByteArray &response)
                     QString content = choice["text"].toString();
                     if (!content.isEmpty())
                     {
-                        appendMarkdown(ui->te_ChatHistory, "AI: " + content);
+                        // Use assistant name as prefix
+                        appendMarkdown(ui->te_ChatHistory, content, m_currentAssistantName + ": ");
                         return;
                     }
                 }
@@ -847,22 +852,23 @@ void MainWindow::suggestAlternative()
  * @brief       Appends Markdown text to a QTextEdit widget.
  * @param       textEdit    Target QTextEdit widget
  * @param       markdown    Markdown text to append
+ * @param       prefix      Optional prefix for the message (default is empty)
  * @details     Retrieves the current markdown content, appends the new text
  *              with a new line separator, and sets the updated markdown back.
  *              Preserves existing formatting and content. Uses QTextEdit's
  *              built-in markdown support for proper rendering.
  */
-void MainWindow::appendMarkdown(QTextEdit* textEdit, const QString& markdown)
+void MainWindow::appendMarkdown(QTextEdit* textEdit, const QString& markdown, const QString& prefix)
 {
     // Get current text in markdown format
     QString currentText = textEdit->toMarkdown();
 
-    // Add new line and new text
+    // Add new line and new text with prefix
     if (!currentText.isEmpty() && !currentText.endsWith('\n'))
     {
         currentText += '\n';
     }
-    currentText += markdown;
+    currentText += prefix + markdown;
 
     // Set the updated text
     textEdit->setMarkdown(currentText);
@@ -966,6 +972,7 @@ void MainWindow::applyProfileSettings(int profileIndex)
     ai.max_tokens = profile.max_tokens;
     ai.temperature = profile.temperature;
     ai.stream = profile.stream;
+    m_currentAssistantName = profile.name;  // Store assistant name
 
     m_currentProfileIndex = profileIndex;
 
@@ -974,7 +981,8 @@ void MainWindow::applyProfileSettings(int profileIndex)
              << "URL:" << ai.url
              << "Max tokens:" << ai.max_tokens
              << "Temperature:" << ai.temperature
-             << "Stream:" << ai.stream;
+             << "Stream:" << ai.stream
+             << "Assistant name:" << m_currentAssistantName;
 
     // Validate and warn about missing settings
     if (ai.url.isEmpty())
