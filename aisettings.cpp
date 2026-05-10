@@ -7,7 +7,7 @@
  *
  * @author      Arthur Markaryan
  * @date        10.05.2026
- * @version     1.1.3
+ * @version     1.1.4
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -16,6 +16,7 @@
  * - ui_aisettings.h (generated UI form)
  *
  * @par ChangeLog:
+ * 10.05.2026   v1.1.4  Arthur Markaryan - Fix ghost selection on remove
  * 10.05.2026   v1.1.3  Arthur Markaryan - Fix profile removal and reindexing logic with sequential list
  * 10.05.2026   v1.1.2  Arthur Markaryan - Fix profile settings separation
  * 10.05.2026   v1.1.1  Arthur Markaryan - Add list management buttons handlers
@@ -36,6 +37,7 @@
 #include <QMessageBox>
 #include <QStandardItemModel>
 #include <QInputDialog>
+#include <QShowEvent>
 
 /**
  * @brief       Constructor for AiSettings dialog.
@@ -90,6 +92,68 @@ AiSettings::AiSettings(QWidget *parent)
 AiSettings::~AiSettings()
 {
     delete ui;
+}
+
+/**
+ * @brief       Force update list view to clear ghost selection.
+ * @details     Completely resets and repopulates the list view to remove
+ *              any visual artifacts after profile removal.
+ */
+void AiSettings::forceUpdateListView()
+{
+    // Save current selection
+    int savedIndex = m_currentProfileIndex;
+
+    // Temporarily disconnect signals
+    disconnect(ui->lv_AIList->selectionModel(), &QItemSelectionModel::currentChanged,
+               this, &AiSettings::onCurrentProfileChanged);
+
+    // Store current model data
+    QStringList items;
+    for (int i = 0; i < m_aiListModel->rowCount(); ++i)
+    {
+        QStandardItem *item = m_aiListModel->item(i);
+        if (item)
+        {
+            items << item->text();
+        }
+    }
+
+    // Clear model
+    m_aiListModel->clear();
+
+    // Repopulate model
+    for (const QString &item : items)
+    {
+        QStandardItem *newItem = new QStandardItem(item);
+        m_aiListModel->appendRow(newItem);
+    }
+
+    // Restore selection
+    if (savedIndex >= 0 && savedIndex < m_aiListModel->rowCount())
+    {
+        m_currentProfileIndex = savedIndex;
+    }
+    else if (m_aiListModel->rowCount() > 0)
+    {
+        m_currentProfileIndex = 0;
+    }
+    else
+    {
+        m_currentProfileIndex = -1;
+    }
+
+    // Reconnect signals
+    connect(ui->lv_AIList->selectionModel(), &QItemSelectionModel::currentChanged,
+            this, &AiSettings::onCurrentProfileChanged);
+
+    // Set selection
+    if (m_currentProfileIndex >= 0)
+    {
+        ui->lv_AIList->setCurrentIndex(m_aiListModel->index(m_currentProfileIndex, 0));
+    }
+
+    ui->lv_AIList->update();
 }
 
 /**
@@ -328,10 +392,10 @@ void AiSettings::displayProfileSettings(int index)
     }
     else
     {
-        // Default values
-        ui->le_Model->setText("");
-        ui->le_URL->setText("");
-        ui->le_APIkey->setText("");
+        // Clear UI when no profile selected
+        ui->le_Model->clear();
+        ui->le_URL->clear();
+        ui->le_APIkey->clear();
         ui->sb_MaxTokens->setValue(2048);
         ui->dsb_Temperature->setValue(0.7);
         ui->cb_Stream->setChecked(false);
@@ -386,19 +450,33 @@ void AiSettings::onCurrentProfileChanged(const QModelIndex &current, const QMode
 {
     Q_UNUSED(previous)
 
-    // Save settings of the currently selected profile before switching
-    if (m_currentProfileIndex >= 0)
+    // Validate current index
+    if (!current.isValid())
+    {
+        m_currentProfileIndex = -1;
+        displayProfileSettings(-1);
+        qDebug() << "No profile selected (invalid index)";
+        return;
+    }
+
+    // Check if index is within valid range
+    if (current.row() >= m_aiListModel->rowCount() || current.row() < 0)
+    {
+        qDebug() << "Warning: current index" << current.row()
+        << "is out of range, model size:" << m_aiListModel->rowCount();
+        return;
+    }
+
+    // Save settings of the previously selected profile before switching
+    if (m_currentProfileIndex >= 0 && m_currentProfileIndex < m_profileSettingsList.size())
     {
         saveCurrentProfileSettings();
     }
 
-    // Update current profile index
-    if (current.isValid())
-    {
-        m_currentProfileIndex = current.row();
-        displayProfileSettings(m_currentProfileIndex);
-        qDebug() << "Switched to profile" << m_currentProfileIndex;
-    }
+    // Update current profile index and display
+    m_currentProfileIndex = current.row();
+    displayProfileSettings(m_currentProfileIndex);
+    qDebug() << "Switched to profile" << m_currentProfileIndex;
 }
 
 /**
@@ -475,6 +553,17 @@ void AiSettings::onRemoveAI()
     {
         int removedRow = m_currentProfileIndex;
 
+        // Save current settings before removal
+        saveCurrentProfileSettings();
+
+        // Disconnect signal temporarily
+        disconnect(ui->lv_AIList->selectionModel(), &QItemSelectionModel::currentChanged,
+                   this, &AiSettings::onCurrentProfileChanged);
+
+        // Clear selection
+        ui->lv_AIList->selectionModel()->clear();
+        ui->lv_AIList->clearSelection();
+
         // Remove from model
         m_aiListModel->removeRow(removedRow);
 
@@ -482,20 +571,38 @@ void AiSettings::onRemoveAI()
         m_profileSettingsList.removeAt(removedRow);
 
         qDebug() << "Removed profile at row" << removedRow
+                 << "new model size:" << m_aiListModel->rowCount()
                  << "new settings list size:" << m_profileSettingsList.size();
+
+        // Force complete refresh of the view
+        ui->lv_AIList->reset();
+
+        // Force update list view to clear any ghost selection
+        forceUpdateListView();
+
+        // Reconnect signal
+        connect(ui->lv_AIList->selectionModel(), &QItemSelectionModel::currentChanged,
+                this, &AiSettings::onCurrentProfileChanged);
 
         // Select another profile if available
         if (m_aiListModel->rowCount() > 0)
         {
             int newSelection = (removedRow < m_aiListModel->rowCount()) ?
                                    removedRow : m_aiListModel->rowCount() - 1;
+
             m_currentProfileIndex = newSelection;
             ui->lv_AIList->setCurrentIndex(m_aiListModel->index(newSelection, 0));
+            displayProfileSettings(m_currentProfileIndex);
         }
         else
         {
             m_currentProfileIndex = -1;
+            displayProfileSettings(-1);
         }
+
+        // Force final update
+        ui->lv_AIList->update();
+        this->update();
 
         qDebug() << "Removed AI profile:" << profileName;
     }
@@ -613,5 +720,24 @@ void AiSettings::onButtonBoxClicked(QAbstractButton *button)
     {
         // Reject the dialog without saving
         reject();
+    }
+}
+
+/**
+ * @brief       Show event handler.
+ * @param       event   Show event
+ * @details     Ensures the list view is properly updated when the dialog is shown.
+ */
+void AiSettings::showEvent(QShowEvent *event)
+{
+    QDialog::showEvent(event);
+
+    // Ensure the list view is properly updated
+    ui->lv_AIList->update();
+
+    // Restore selection if needed
+    if (m_currentProfileIndex >= 0 && m_currentProfileIndex < m_aiListModel->rowCount())
+    {
+        ui->lv_AIList->setCurrentIndex(m_aiListModel->index(m_currentProfileIndex, 0));
     }
 }

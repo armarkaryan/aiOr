@@ -7,7 +7,7 @@
  *
  * @author      Arthur Markaryan
  * @date        10.05.2026
- * @version     1.1.3
+ * @version     1.1.4
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -16,6 +16,7 @@
  * - Ui::AiSettings (generated from .ui file)
  *
  * @par ChangeLog:
+ * 10.05.2026   v1.1.4  Arthur Markaryan - Fix ghost selection on remove
  * 10.05.2026   v1.1.3  Arthur Markaryan - Fix profile removal and reindexing logic with sequential list
  * 10.05.2026   v1.1.2  Arthur Markaryan - Fix profile settings separation
  * 10.05.2026   v1.1.1  Arthur Markaryan - Add list management buttons handlers
@@ -35,6 +36,7 @@
 #include <QMap>
 #include <QList>
 #include <QStandardItemModel>
+#include <QShowEvent>
 
 namespace Ui {
 class AiSettings;
@@ -159,6 +161,21 @@ private:
      * @details     Stores current UI values for the active profile.
      */
     void saveCurrentProfileSettings();
+
+    /**
+     * @brief       Force update list view to clear ghost selection.
+     * @details     Completely resets and repopulates the list view to remove
+     *              any visual artifacts after profile removal.
+     */
+    void forceUpdateListView();
+
+protected:
+    /**
+     * @brief       Show event handler.
+     * @param       event   Show event
+     * @details     Ensures the list view is properly updated when the dialog is shown.
+     */
+    void showEvent(QShowEvent *event) override;
 };
 
 #endif /* _AISETTINGS_H_ */
