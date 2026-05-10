@@ -7,7 +7,7 @@
  *
  * @author      Arthur Markaryan
  * @date        10.05.2026
- * @version     1.1.4
+ * @version     1.1.5
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -16,6 +16,7 @@
  * - Ui::AiSettings (generated from .ui file)
  *
  * @par ChangeLog:
+ * 10.05.2026   v1.1.5  Arthur Markaryan - Fix bug wrong move up/down item in the AI list
  * 10.05.2026   v1.1.4  Arthur Markaryan - Fix ghost selection on remove
  * 10.05.2026   v1.1.3  Arthur Markaryan - Fix profile removal and reindexing logic with sequential list
  * 10.05.2026   v1.1.2  Arthur Markaryan - Fix profile settings separation

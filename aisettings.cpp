@@ -7,7 +7,7 @@
  *
  * @author      Arthur Markaryan
  * @date        10.05.2026
- * @version     1.1.4
+ * @version     1.1.5
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -16,6 +16,7 @@
  * - ui_aisettings.h (generated UI form)
  *
  * @par ChangeLog:
+ * 10.05.2026   v1.1.5  Arthur Markaryan - Fix bug wrong move up/down item in the AI list
  * 10.05.2026   v1.1.4  Arthur Markaryan - Fix ghost selection on remove
  * 10.05.2026   v1.1.3  Arthur Markaryan - Fix profile removal and reindexing logic with sequential list
  * 10.05.2026   v1.1.2  Arthur Markaryan - Fix profile settings separation
@@ -630,23 +631,47 @@ void AiSettings::onMoveUp()
         return;
     }
 
-    int row = m_currentProfileIndex;
+    int fromRow = m_currentProfileIndex;
+    int toRow = fromRow - 1;
 
-    // Save current settings before moving
+    // CRITICAL: Save current settings before moving
     saveCurrentProfileSettings();
 
-    // Swap items in the model
-    QStandardItem *itemToMove = m_aiListModel->takeItem(row);
-    m_aiListModel->insertRow(row - 1, itemToMove);
+    // Disconnect signals temporarily to avoid unwanted updates
+    disconnect(ui->lv_AIList->selectionModel(), &QItemSelectionModel::currentChanged,
+               this, &AiSettings::onCurrentProfileChanged);
 
-    // Swap settings in the list
-    m_profileSettingsList.swapItemsAt(row, row - 1);
+    // Save the text of the item being moved
+    QString itemText = m_aiListModel->item(fromRow)->text();
 
-    // Update selection
-    m_currentProfileIndex = row - 1;
-    ui->lv_AIList->setCurrentIndex(m_aiListModel->index(row - 1, 0));
+    // Save the settings of the item being moved
+    QMap<QString, QVariant> movingSettings = m_profileSettingsList[fromRow];
 
-    qDebug() << "Moved profile up from row" << row << "to" << (row - 1);
+    // Remove the item from its current position
+    m_aiListModel->removeRow(fromRow);
+
+    // Insert the item at the new position
+    QStandardItem *itemToMove = new QStandardItem(itemText);
+    m_aiListModel->insertRow(toRow, itemToMove);
+
+    // Remove settings from old position and insert at new position
+    m_profileSettingsList.removeAt(fromRow);
+    m_profileSettingsList.insert(toRow, movingSettings);
+
+    // Update current profile index
+    m_currentProfileIndex = toRow;
+
+    // Reconnect signals
+    connect(ui->lv_AIList->selectionModel(), &QItemSelectionModel::currentChanged,
+            this, &AiSettings::onCurrentProfileChanged);
+
+    // Set selection to the moved item
+    ui->lv_AIList->setCurrentIndex(m_aiListModel->index(toRow, 0));
+
+    // Force update
+    ui->lv_AIList->update();
+
+    qDebug() << "Moved profile up from row" << fromRow << "to" << toRow;
 }
 
 /**
@@ -671,23 +696,47 @@ void AiSettings::onMoveDown()
         return;
     }
 
-    int row = m_currentProfileIndex;
+    int fromRow = m_currentProfileIndex;
+    int toRow = fromRow + 1;
 
-    // Save current settings before moving
+    // CRITICAL: Save current settings before moving
     saveCurrentProfileSettings();
 
-    // Swap items in the model
-    QStandardItem *itemToMove = m_aiListModel->takeItem(row);
-    m_aiListModel->insertRow(row + 1, itemToMove);
+    // Disconnect signals temporarily to avoid unwanted updates
+    disconnect(ui->lv_AIList->selectionModel(), &QItemSelectionModel::currentChanged,
+               this, &AiSettings::onCurrentProfileChanged);
 
-    // Swap settings in the list
-    m_profileSettingsList.swapItemsAt(row, row + 1);
+    // Save the text of the item being moved
+    QString itemText = m_aiListModel->item(fromRow)->text();
 
-    // Update selection
-    m_currentProfileIndex = row + 1;
-    ui->lv_AIList->setCurrentIndex(m_aiListModel->index(row + 1, 0));
+    // Save the settings of the item being moved
+    QMap<QString, QVariant> movingSettings = m_profileSettingsList[fromRow];
 
-    qDebug() << "Moved profile down from row" << row << "to" << (row + 1);
+    // Remove the item from its current position
+    m_aiListModel->removeRow(fromRow);
+
+    // Insert the item at the new position
+    QStandardItem *itemToMove = new QStandardItem(itemText);
+    m_aiListModel->insertRow(toRow, itemToMove);
+
+    // Remove settings from old position and insert at new position
+    m_profileSettingsList.removeAt(fromRow);
+    m_profileSettingsList.insert(toRow, movingSettings);
+
+    // Update current profile index
+    m_currentProfileIndex = toRow;
+
+    // Reconnect signals
+    connect(ui->lv_AIList->selectionModel(), &QItemSelectionModel::currentChanged,
+            this, &AiSettings::onCurrentProfileChanged);
+
+    // Set selection to the moved item
+    ui->lv_AIList->setCurrentIndex(m_aiListModel->index(toRow, 0));
+
+    // Force update
+    ui->lv_AIList->update();
+
+    qDebug() << "Moved profile down from row" << fromRow << "to" << toRow;
 }
 
 /**
