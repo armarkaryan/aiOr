@@ -139,7 +139,11 @@
        </widget>
       </item>
       <item row="3" column="1">
-       <widget class="QSpinBox" name="sb_MaxTokens"/>
+       <widget class="QSpinBox" name="sb_MaxTokens">
+        <property name="maximum">
+         <number>4096</number>
+        </property>
+       </widget>
       </item>
       <item row="4" column="0">
        <widget class="QLabel" name="l_Temperature">
@@ -149,7 +153,17 @@
        </widget>
       </item>
       <item row="4" column="1">
-       <widget class="QDoubleSpinBox" name="dsb_Temperature"/>
+       <widget class="QDoubleSpinBox" name="dsb_Temperature">
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="maximum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.010000000000000</double>
+        </property>
+       </widget>
       </item>
       <item row="5" column="0" colspan="2">
        <widget class="QCheckBox" name="cb_Stream">
