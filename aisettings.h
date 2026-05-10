@@ -7,7 +7,7 @@
  *
  * @author      Arthur Markaryan
  * @date        10.05.2026
- * @version     1.1
+ * @version     1.1.1
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -16,6 +16,7 @@
  * - Ui::AiSettings (generated from .ui file)
  *
  * @par ChangeLog:
+ * 10.05.2026   v1.1.1  Arthur Markaryan - Add list management buttons handlers
  * 10.05.2026   v1.1    Arthur Markaryan - Add base save/load functionality
  * 09.05.2026   v1.0    Arthur Markaryan - Initial implementation
  *
@@ -91,6 +92,42 @@ private slots:
      * @details     Handles Save and Cancel button actions.
      */
     void onButtonBoxClicked(QAbstractButton *button);
+
+    /**
+     * @brief       Handle current profile change in the list.
+     * @param       current     The new current index
+     * @param       previous    The previous current index
+     * @details     Saves settings of the previously selected profile and loads
+     *              settings of the newly selected profile.
+     */
+    void onCurrentProfileChanged(const QModelIndex &current, const QModelIndex &previous);
+
+    /**
+     * @brief       Handle Add AI button click.
+     * @details     Prompts the user to enter a name for a new AI profile,
+     *              creates a new profile with default settings, and adds it
+     *              to the list.
+     */
+    void onAddAI();
+
+    /**
+     * @brief       Handle Remove AI button click.
+     * @details     Shows a confirmation dialog before removing the selected
+     *              AI profile from the list.
+     */
+    void onRemoveAI();
+
+    /**
+     * @brief       Handle Move Up button click.
+     * @details     Moves the selected AI profile one position up in the list.
+     */
+    void onMoveUp();
+
+    /**
+     * @brief       Handle Move Down button click.
+     * @details     Moves the selected AI profile one position down in the list.
+     */
+    void onMoveDown();
 
 private:
     Ui::AiSettings *ui;	///< Pointer to the UI components generated from .ui file

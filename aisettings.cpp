@@ -7,7 +7,7 @@
  *
  * @author      Arthur Markaryan
  * @date        10.05.2026
- * @version     1.1
+ * @version     1.1.1
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -16,6 +16,7 @@
  * - ui_aisettings.h (generated UI form)
  *
  * @par ChangeLog:
+ * 10.05.2026   v1.1.1  Arthur Markaryan - Add list management buttons handlers
  * 10.05.2026   v1.1    Arthur Markaryan - Add base save/load functionality
  * 09.05.2026   v1.0    Arthur Markaryan - Initial implementation
  *
@@ -32,6 +33,7 @@
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QStandardItemModel>
+#include <QInputDialog>
 
 /**
  * @brief       Constructor for AiSettings dialog.
@@ -52,6 +54,16 @@ AiSettings::AiSettings(QWidget *parent)
 
     // Load settings from file
     loadSettings();
+
+    // Connect list selection change signal
+    connect(ui->lv_AIList->selectionModel(), &QItemSelectionModel::currentChanged,
+            this, &AiSettings::onCurrentProfileChanged);
+
+    // Connect list management buttons
+    connect(ui->tb_AddAI, &QToolButton::clicked, this, &AiSettings::onAddAI);
+    connect(ui->tb_RemoveAI, &QToolButton::clicked, this, &AiSettings::onRemoveAI);
+    connect(ui->tb_MoveUp, &QToolButton::clicked, this, &AiSettings::onMoveUp);
+    connect(ui->tb_MoveDown, &QToolButton::clicked, this, &AiSettings::onMoveDown);
 
     // Connect Save button
     connect(ui->bb_SaveCancel, &QDialogButtonBox::clicked, this, &AiSettings::onButtonBoxClicked);
@@ -336,6 +348,213 @@ void AiSettings::saveCurrentProfileSettings()
         settings["stream"] = ui->cb_Stream->isChecked();
         m_profileSettingsMap[row] = settings;
     }
+}
+
+/**
+ * @brief       Handle current profile change in the list.
+ * @param       current     The new current index
+ * @param       previous    The previous current index
+ * @details     Saves settings of the previously selected profile and loads
+ *              settings of the newly selected profile.
+ */
+void AiSettings::onCurrentProfileChanged(const QModelIndex &current, const QModelIndex &previous)
+{
+    Q_UNUSED(previous)
+
+    // Save settings of the previously selected profile
+    if (previous.isValid())
+    {
+        saveCurrentProfileSettings();
+    }
+
+    // Display settings of the newly selected profile
+    if (current.isValid())
+    {
+        displayProfileSettings(current.row());
+    }
+}
+
+/**
+ * @brief       Handle Add AI button click.
+ * @details     Prompts the user to enter a name for a new AI profile,
+ *              creates a new profile with default settings, and adds it
+ *              to the list. The new profile becomes selected and editable.
+ */
+void AiSettings::onAddAI()
+{
+    // Prompt user for profile name
+    bool ok;
+    QString name = QInputDialog::getText(this, tr("Add AI Profile"),
+                                         tr("Profile name:"), QLineEdit::Normal,
+                                         tr("New AI Profile"), &ok);
+
+    if (ok && !name.isEmpty())
+    {
+        // Save current profile settings before adding new one
+        saveCurrentProfileSettings();
+
+        // Add new profile to the model
+        QStandardItem *newItem = new QStandardItem(name);
+        m_aiListModel->appendRow(newItem);
+
+        // Add default settings for the new profile
+        int newRow = m_aiListModel->rowCount() - 1;
+        QMap<QString, QVariant> defaultSettings;
+        defaultSettings["model"] = "";
+        defaultSettings["url"] = "";
+        defaultSettings["api_key"] = "";
+        defaultSettings["max_tokens"] = 2048;
+        defaultSettings["temperature"] = 0.7;
+        defaultSettings["stream"] = false;
+        m_profileSettingsMap[newRow] = defaultSettings;
+
+        // Select the new profile
+        ui->lv_AIList->setCurrentIndex(m_aiListModel->index(newRow, 0));
+
+        qDebug() << "Added new AI profile:" << name;
+    }
+    else if (ok && name.isEmpty())
+    {
+        QMessageBox::warning(this, tr("Warning"), tr("Profile name cannot be empty!"));
+    }
+}
+
+/**
+ * @brief       Handle Remove AI button click.
+ * @details     Shows a confirmation dialog before removing the selected
+ *              AI profile. If confirmed, removes the profile from the list
+ *              and updates the settings map.
+ */
+void AiSettings::onRemoveAI()
+{
+    QModelIndex currentIndex = ui->lv_AIList->currentIndex();
+    if (!currentIndex.isValid())
+    {
+        QMessageBox::information(this, tr("Information"),
+                                 tr("No profile selected for removal!"));
+        return;
+    }
+
+    QString profileName = m_aiListModel->item(currentIndex.row())->text();
+
+    // Confirmation dialog
+    int reply = QMessageBox::question(this, tr("Confirm Removal"),
+                                      tr("Are you sure you want to remove the AI profile \"%1\"?")
+                                          .arg(profileName),
+                                      QMessageBox::Yes | QMessageBox::No,
+                                      QMessageBox::No);
+
+    if (reply == QMessageBox::Yes)
+    {
+        // Remove from model
+        m_aiListModel->removeRow(currentIndex.row());
+
+        // Update settings map (shift all entries after removed index)
+        QMap<int, QMap<QString, QVariant>> newMap;
+        int newIndex = 0;
+        for (int i = 0; i < m_aiListModel->rowCount() + 1; ++i)
+        {
+            if (i == currentIndex.row())
+                continue; // Skip removed profile
+            if (m_profileSettingsMap.contains(i))
+            {
+                newMap[newIndex++] = m_profileSettingsMap[i];
+            }
+        }
+        m_profileSettingsMap = newMap;
+
+        // Select another profile if available
+        if (m_aiListModel->rowCount() > 0)
+        {
+            int newSelection = (currentIndex.row() < m_aiListModel->rowCount()) ?
+                                   currentIndex.row() : m_aiListModel->rowCount() - 1;
+            ui->lv_AIList->setCurrentIndex(m_aiListModel->index(newSelection, 0));
+        }
+
+        qDebug() << "Removed AI profile:" << profileName;
+    }
+}
+
+/**
+ * @brief       Handle Move Up button click.
+ * @details     Moves the selected AI profile one position up in the list.
+ *              Updates both the list model and the settings map accordingly.
+ */
+void AiSettings::onMoveUp()
+{
+    QModelIndex currentIndex = ui->lv_AIList->currentIndex();
+    if (!currentIndex.isValid())
+    {
+        QMessageBox::information(this, tr("Information"),
+                                 tr("No profile selected to move!"));
+        return;
+    }
+
+    int row = currentIndex.row();
+    if (row == 0)
+    {
+        QMessageBox::information(this, tr("Information"),
+                                 tr("Cannot move the first profile up!"));
+        return;
+    }
+
+    // Save current settings before moving
+    saveCurrentProfileSettings();
+
+    // Swap items in the model
+    QStandardItem *itemToMove = m_aiListModel->takeItem(row);
+    m_aiListModel->insertRow(row - 1, itemToMove);
+
+    // Swap settings in the map
+    QMap<QString, QVariant> tempSettings = m_profileSettingsMap[row];
+    m_profileSettingsMap[row] = m_profileSettingsMap[row - 1];
+    m_profileSettingsMap[row - 1] = tempSettings;
+
+    // Update selection
+    ui->lv_AIList->setCurrentIndex(m_aiListModel->index(row - 1, 0));
+
+    qDebug() << "Moved profile up from row" << row << "to" << (row - 1);
+}
+
+/**
+ * @brief       Handle Move Down button click.
+ * @details     Moves the selected AI profile one position down in the list.
+ *              Updates both the list model and the settings map accordingly.
+ */
+void AiSettings::onMoveDown()
+{
+    QModelIndex currentIndex = ui->lv_AIList->currentIndex();
+    if (!currentIndex.isValid())
+    {
+        QMessageBox::information(this, tr("Information"),
+                                 tr("No profile selected to move!"));
+        return;
+    }
+
+    int row = currentIndex.row();
+    if (row == m_aiListModel->rowCount() - 1)
+    {
+        QMessageBox::information(this, tr("Information"),
+                                 tr("Cannot move the last profile down!"));
+        return;
+    }
+
+    // Save current settings before moving
+    saveCurrentProfileSettings();
+
+    // Swap items in the model
+    QStandardItem *itemToMove = m_aiListModel->takeItem(row);
+    m_aiListModel->insertRow(row + 1, itemToMove);
+
+    // Swap settings in the map
+    QMap<QString, QVariant> tempSettings = m_profileSettingsMap[row];
+    m_profileSettingsMap[row] = m_profileSettingsMap[row + 1];
+    m_profileSettingsMap[row + 1] = tempSettings;
+
+    // Update selection
+    ui->lv_AIList->setCurrentIndex(m_aiListModel->index(row + 1, 0));
+
+    qDebug() << "Moved profile down from row" << row << "to" << (row + 1);
 }
 
 /**
