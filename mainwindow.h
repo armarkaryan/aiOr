@@ -6,21 +6,19 @@
  *              network communication with DeepSeek/Groq APIs, and markdown rendering.
  *
  * @author      Arthur Markaryan
- * @date        09.05.2026
- * @version     1.3.6
+ * @date        10.05.2026
+ * @version     1.4.0
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
- * @par Dependencies:
- * - Qt5/6 Core (QMainWindow, QTextEdit, QNetworkAccessManager, QNetworkReply)
- * - Qt5/6 Network (QSslError)
- * - Qt5/6 Json (QJsonDocument, QJsonObject)
- *
  * @par ChangeLog:
+ * 10.05.2026   v1.4.0  Arthur Markaryan - Integrate AI settings profiles with main window
  * 09.05.2026   v1.3.6  Arthur Markaryan - Add AI settings window integration
  * 09.05.2026   v1.3.5  Arthur Markaryan - Modify header of the file
  * 06.05.2026   v1.3.4  Arthur Markaryan - Add deepseek API-key by default
  * 09.01.2026   v1.3.3  Arthur Markaryan - Replace includes from .h to .cpp file
+ * 09.01.2026   v1.3.2.2Arthur Markaryan - Change main status bar name
+ * 09.01.2026   v1.3.2.1Arthur Markaryan - Add Chat List widget class & ui
  * 04.01.2026   v1.3.2  Arthur Markaryan - Add Groq error code header file
  * 04.01.2026   v1.3.1  Arthur Markaryan - Add Groq test
  * 14.11.2025   v1.3    Arthur Markaryan - Added any model selection capibility
@@ -28,9 +26,9 @@
  * 09.11.2025   v1.1    Arthur Markaryan - Added error checking
  * 08.11.2025   v1.0    Arthur Markaryan - Initial implementation
  *
- * @see         MainWindow::MainWindow()
- * @see         MainWindow::~MainWindow()
- * @see         MainWindow::sendMessageToAI()
+ * @see         MainWindow
+ * @see         ApiKeyReader
+ * @see         AiSettings
  */
 
 #ifndef _MAINWINDOW_H_
@@ -42,6 +40,8 @@
 #include <QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMap>
+#include <QList>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -111,6 +111,12 @@ private slots:
      */
     void on_cb_AI_currentIndexChanged(int index);
 
+    /**
+     * @brief       Called when AI settings are changed in the settings dialog.
+     * @details     Reloads profiles from the settings file and updates the combo box.
+     */
+    void onSettingsChanged();
+
 private:
     Ui::MainWindow *ui;                         ///< Pointer to the UI components generated from .ui file
     QNetworkAccessManager *networkManager;      ///< Manages network requests to AI APIs
@@ -128,31 +134,34 @@ private:
      * @var        AI::max_tokens  Maximum number of tokens in response
      * @var        AI::temperature Sampling temperature (0.0 to 1.0)
      * @var        AI::stream      Enable/disable streaming responses
-     * @var        AI::selectedProvider Index of selected AI provider (0=DeepSeek, 1=Groq, 2=Qwen)
      */
     struct AI
     {
-        QString model = "deepseek-chat";                    //!< Free model
-        QString url = "https://api.deepseek.com/v1/chat/completions";   //!< DeepSeek API endpoint
-        QString apiKey = "your_deepseek_api_key_here";      //!< AI API key
-        QString max_tokens = "4000";                        //!< Correct (free up to 4096)
-        QString temperature = "0.3";                        //!< Sampling temperature
-        QString stream = "false";                           //!< Streaming disabled
-        int selectedProvider = 0;                           //!< 0: DeepSeek, 1: Groq, 2: Qwen
+        QString model = "";                         //!< AI model
+        QString url = "";                           //!< API endpoint
+        QString apiKey = "";                        //!< AI API key
+        int max_tokens = 2048;                      //!< Maximum tokens
+        double temperature = 0.7;                   //!< Sampling temperature
+        bool stream = false;                        //!< Streaming disabled
     } ai;
 
-    // Provider configurations
-    struct ProviderConfig
+    /**
+     * @struct     ProfileInfo
+     * @brief      Structure for storing profile information.
+     */
+    struct ProfileInfo
     {
-        QString name;
-        QString model;
-        QString url;
-        QString defaultApiKey;
-        QString maxTokens;
-        QString temperature;
+        QString name;                               //!< Profile name
+        QString model;                              //!< AI model
+        QString url;                                //!< API endpoint
+        QString apiKey;                             //!< API key
+        int max_tokens;                             //!< Maximum tokens
+        double temperature;                         //!< Temperature
+        bool stream;                                //!< Stream flag
     };
 
-    QList<ProviderConfig> providers;                        ///< List of available AI providers
+    QList<ProfileInfo> m_profiles;                  ///< List of loaded profiles
+    int m_currentProfileIndex;                      ///< Currently selected profile index
 
     /**
      * @brief       Sends a message to the AI API.
@@ -198,19 +207,23 @@ private:
     void appendAsHtml(QTextEdit* textEdit, const QString& markdown);
 
     /**
-     * @brief       Initializes AI provider configurations.
-     * @details     Sets up the list of available AI providers with their
-     *              respective models, API endpoints, and default settings.
+     * @brief       Loads profiles from AiSettings configuration file.
+     * @details     Reads the aisettings.set file and populates the profiles list.
      */
-    void initializeProviders();
+    void loadProfilesFromSettings();
 
     /**
-     * @brief       Updates AI configuration based on selected provider.
-     * @param       providerIndex Index of the selected provider
-     * @details     Loads the configuration for the specified provider and
-     *              updates the ai structure with the new settings.
+     * @brief       Updates the combo box with loaded profile names.
+     * @details     Clears and repopulates cb_AI with profile names from m_profiles.
      */
-    void updateAIConfiguration(int providerIndex);
+    void updateProfileComboBox();
+
+    /**
+     * @brief       Applies the selected profile settings to the AI configuration.
+     * @param       profileIndex Index of the profile to apply
+     * @details     Updates the ai structure with settings from the specified profile.
+     */
+    void applyProfileSettings(int profileIndex);
 };
 
 #endif /* _MAINWINDOW_H_ */
