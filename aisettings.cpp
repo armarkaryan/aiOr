@@ -7,7 +7,7 @@
  *
  * @author      Arthur Markaryan
  * @date        10.05.2026
- * @version     1.1.2
+ * @version     1.1.3
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -16,6 +16,7 @@
  * - ui_aisettings.h (generated UI form)
  *
  * @par ChangeLog:
+ * 10.05.2026   v1.1.3  Arthur Markaryan - Fix profile removal and reindexing logic with sequential list
  * 10.05.2026   v1.1.2  Arthur Markaryan - Fix profile settings separation
  * 10.05.2026   v1.1.1  Arthur Markaryan - Add list management buttons handlers
  * 10.05.2026   v1.1    Arthur Markaryan - Add base save/load functionality
@@ -47,6 +48,7 @@ AiSettings::AiSettings(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::AiSettings)
     , m_suppressAutoSave(false)
+    , m_currentProfileIndex(-1)
 {
     ui->setupUi(this);
 
@@ -103,15 +105,7 @@ void AiSettings::saveSettings()
     QSettings settings(configPath, QSettings::IniFormat);
 
     // Save current AI profile selection
-    QModelIndex currentIndex = ui->lv_AIList->currentIndex();
-    if (currentIndex.isValid())
-    {
-        settings.setValue("AI/CURRENT_PROFILE", currentIndex.row());
-    }
-    else
-    {
-        settings.setValue("AI/CURRENT_PROFILE", 0);
-    }
+    settings.setValue("AI/CURRENT_PROFILE", m_currentProfileIndex);
 
     // Save AI list items
     int listSize = m_aiListModel->rowCount();
@@ -133,10 +127,10 @@ void AiSettings::saveSettings()
     {
         settings.setArrayIndex(i);
 
-        if (m_profileSettingsMap.contains(i))
+        // Get settings from the list (preserving order)
+        if (i < m_profileSettingsList.size())
         {
-            // Save stored settings from map
-            QMap<QString, QVariant> profileSettings = m_profileSettingsMap[i];
+            QMap<QString, QVariant> profileSettings = m_profileSettingsList[i];
             settings.setValue("model", profileSettings["model"]);
             settings.setValue("url", profileSettings["url"]);
             settings.setValue("api_key", profileSettings["api_key"]);
@@ -191,13 +185,29 @@ void AiSettings::loadSettings()
 
     qDebug() << "Loading AI settings from:" << configPath;
 
+    // Clear existing data
+    m_aiListModel->clear();
+    m_profileSettingsList.clear();
+    m_currentProfileIndex = -1;
+
     if (!QFile::exists(configPath))
     {
         qDebug() << "AI settings file does not exist, using defaults";
         // Add default profile
-        m_aiListModel->clear();
         QStandardItem *defaultItem = new QStandardItem("Default AI");
         m_aiListModel->appendRow(defaultItem);
+
+        // Set default settings for the default profile
+        QMap<QString, QVariant> defaultSettings;
+        defaultSettings["model"] = "";
+        defaultSettings["url"] = "";
+        defaultSettings["api_key"] = "";
+        defaultSettings["max_tokens"] = 2048;
+        defaultSettings["temperature"] = 0.7;
+        defaultSettings["stream"] = false;
+        m_profileSettingsList.append(defaultSettings);
+
+        m_currentProfileIndex = 0;
 
         // Set default UI values
         ui->le_Model->setText("");
@@ -216,7 +226,6 @@ void AiSettings::loadSettings()
     if (listSize > 0)
     {
         qDebug() << "Loading AI profiles, count:" << listSize;
-        m_aiListModel->clear();
 
         for (int i = 0; i < listSize; ++i)
         {
@@ -243,8 +252,9 @@ void AiSettings::loadSettings()
 
     // Load settings for each AI profile
     int settingsSize = settings.beginReadArray("AI/PROFILES_SETTINGS");
+    int profileCount = m_aiListModel->rowCount();
 
-    for (int i = 0; i < m_aiListModel->rowCount(); ++i)
+    for (int i = 0; i < profileCount; ++i)
     {
         QMap<QString, QVariant> profileSettings;
 
@@ -260,7 +270,7 @@ void AiSettings::loadSettings()
         }
         else
         {
-            // Default settings for new/excess profiles
+            // Default settings for profiles without saved settings
             profileSettings["model"] = "";
             profileSettings["url"] = "";
             profileSettings["api_key"] = "";
@@ -269,28 +279,31 @@ void AiSettings::loadSettings()
             profileSettings["stream"] = false;
         }
 
-        m_profileSettingsMap[i] = profileSettings;
+        m_profileSettingsList.append(profileSettings);
     }
     settings.endArray();
 
     // Restore current profile selection
-    m_suppressAutoSave = true; // Suppress auto-save during initial load
+    m_suppressAutoSave = true;
     int currentProfile = settings.value("AI/CURRENT_PROFILE", 0).toInt();
     if (currentProfile >= 0 && currentProfile < m_aiListModel->rowCount())
     {
+        m_currentProfileIndex = currentProfile;
         ui->lv_AIList->setCurrentIndex(m_aiListModel->index(currentProfile, 0));
         displayProfileSettings(currentProfile);
         qDebug() << "Restored current profile index:" << currentProfile;
     }
     else if (m_aiListModel->rowCount() > 0)
     {
+        m_currentProfileIndex = 0;
         ui->lv_AIList->setCurrentIndex(m_aiListModel->index(0, 0));
         displayProfileSettings(0);
         qDebug() << "Set first profile as current";
     }
     m_suppressAutoSave = false;
 
-    qDebug() << "AI settings loaded successfully, profiles count:" << m_aiListModel->rowCount();
+    qDebug() << "AI settings loaded successfully, profiles count:" << m_aiListModel->rowCount()
+             << "settings list size:" << m_profileSettingsList.size();
 }
 
 /**
@@ -301,11 +314,11 @@ void AiSettings::loadSettings()
  */
 void AiSettings::displayProfileSettings(int index)
 {
-    m_suppressAutoSave = true; // Suppress auto-save while loading
+    m_suppressAutoSave = true;
 
-    if (m_profileSettingsMap.contains(index))
+    if (index >= 0 && index < m_profileSettingsList.size())
     {
-        QMap<QString, QVariant> settings = m_profileSettingsMap[index];
+        QMap<QString, QVariant> settings = m_profileSettingsList[index];
         ui->le_Model->setText(settings["model"].toString());
         ui->le_URL->setText(settings["url"].toString());
         ui->le_APIkey->setText(settings["api_key"].toString());
@@ -329,18 +342,16 @@ void AiSettings::displayProfileSettings(int index)
 
 /**
  * @brief       Save current settings for the selected profile.
- * @details     Updates the stored settings map for the currently selected
+ * @details     Updates the stored settings list for the currently selected
  *              AI profile with the current values from the UI controls.
  */
 void AiSettings::saveCurrentProfileSettings()
 {
     if (m_suppressAutoSave)
-        return; // Don't save during profile switching or loading
+        return;
 
-    QModelIndex currentIndex = ui->lv_AIList->currentIndex();
-    if (currentIndex.isValid())
+    if (m_currentProfileIndex >= 0 && m_currentProfileIndex < m_profileSettingsList.size())
     {
-        int row = currentIndex.row();
         QMap<QString, QVariant> settings;
         settings["model"] = ui->le_Model->text();
         settings["url"] = ui->le_URL->text();
@@ -348,16 +359,16 @@ void AiSettings::saveCurrentProfileSettings()
         settings["max_tokens"] = ui->sb_MaxTokens->value();
         settings["temperature"] = ui->dsb_Temperature->value();
         settings["stream"] = ui->cb_Stream->isChecked();
-        m_profileSettingsMap[row] = settings;
+        m_profileSettingsList[m_currentProfileIndex] = settings;
 
-        qDebug() << "Saved settings for profile" << row;
+        qDebug() << "Saved settings for profile" << m_currentProfileIndex;
     }
 }
 
 /**
  * @brief       Handle settings changed by user.
  * @details     Called when any input field is modified. Immediately saves
- *              the current profile settings to the map.
+ *              the current profile settings to the list.
  */
 void AiSettings::onSettingsChanged()
 {
@@ -373,27 +384,20 @@ void AiSettings::onSettingsChanged()
  */
 void AiSettings::onCurrentProfileChanged(const QModelIndex &current, const QModelIndex &previous)
 {
-    // Save settings of the previously selected profile
-    if (previous.isValid() && previous.row() != current.row())
-    {
-        // Temporarily store current UI values before switching
-        QMap<QString, QVariant> previousSettings;
-        previousSettings["model"] = ui->le_Model->text();
-        previousSettings["url"] = ui->le_URL->text();
-        previousSettings["api_key"] = ui->le_APIkey->text();
-        previousSettings["max_tokens"] = ui->sb_MaxTokens->value();
-        previousSettings["temperature"] = ui->dsb_Temperature->value();
-        previousSettings["stream"] = ui->cb_Stream->isChecked();
-        m_profileSettingsMap[previous.row()] = previousSettings;
+    Q_UNUSED(previous)
 
-        qDebug() << "Saved settings for previous profile" << previous.row();
+    // Save settings of the currently selected profile before switching
+    if (m_currentProfileIndex >= 0)
+    {
+        saveCurrentProfileSettings();
     }
 
-    // Display settings of the newly selected profile
+    // Update current profile index
     if (current.isValid())
     {
-        displayProfileSettings(current.row());
-        qDebug() << "Loaded settings for profile" << current.row();
+        m_currentProfileIndex = current.row();
+        displayProfileSettings(m_currentProfileIndex);
+        qDebug() << "Switched to profile" << m_currentProfileIndex;
     }
 }
 
@@ -405,7 +409,6 @@ void AiSettings::onCurrentProfileChanged(const QModelIndex &current, const QMode
  */
 void AiSettings::onAddAI()
 {
-    // Prompt user for profile name
     bool ok;
     QString name = QInputDialog::getText(this, tr("Add AI Profile"),
                                          tr("Profile name:"), QLineEdit::Normal,
@@ -421,7 +424,6 @@ void AiSettings::onAddAI()
         m_aiListModel->appendRow(newItem);
 
         // Add default settings for the new profile
-        int newRow = m_aiListModel->rowCount() - 1;
         QMap<QString, QVariant> defaultSettings;
         defaultSettings["model"] = "";
         defaultSettings["url"] = "";
@@ -429,12 +431,15 @@ void AiSettings::onAddAI()
         defaultSettings["max_tokens"] = 2048;
         defaultSettings["temperature"] = 0.7;
         defaultSettings["stream"] = false;
-        m_profileSettingsMap[newRow] = defaultSettings;
+        m_profileSettingsList.append(defaultSettings);
 
         // Select the new profile
+        int newRow = m_aiListModel->rowCount() - 1;
+        m_currentProfileIndex = newRow;
         ui->lv_AIList->setCurrentIndex(m_aiListModel->index(newRow, 0));
 
-        qDebug() << "Added new AI profile:" << name;
+        qDebug() << "Added new AI profile:" << name << "at row" << newRow
+                 << "settings list size:" << m_profileSettingsList.size();
     }
     else if (ok && name.isEmpty())
     {
@@ -446,19 +451,18 @@ void AiSettings::onAddAI()
  * @brief       Handle Remove AI button click.
  * @details     Shows a confirmation dialog before removing the selected
  *              AI profile. If confirmed, removes the profile from the list
- *              and updates the settings map.
+ *              and updates the settings list.
  */
 void AiSettings::onRemoveAI()
 {
-    QModelIndex currentIndex = ui->lv_AIList->currentIndex();
-    if (!currentIndex.isValid())
+    if (m_currentProfileIndex < 0 || m_currentProfileIndex >= m_aiListModel->rowCount())
     {
         QMessageBox::information(this, tr("Information"),
                                  tr("No profile selected for removal!"));
         return;
     }
 
-    QString profileName = m_aiListModel->item(currentIndex.row())->text();
+    QString profileName = m_aiListModel->item(m_currentProfileIndex)->text();
 
     // Confirmation dialog
     int reply = QMessageBox::question(this, tr("Confirm Removal"),
@@ -469,31 +473,28 @@ void AiSettings::onRemoveAI()
 
     if (reply == QMessageBox::Yes)
     {
-        int removedRow = currentIndex.row();
+        int removedRow = m_currentProfileIndex;
 
         // Remove from model
         m_aiListModel->removeRow(removedRow);
 
-        // Update settings map (shift all entries after removed index)
-        QMap<int, QMap<QString, QVariant>> newMap;
-        int newIndex = 0;
-        for (int i = 0; i <= m_profileSettingsMap.size(); ++i)
-        {
-            if (i == removedRow)
-                continue; // Skip removed profile
-            if (m_profileSettingsMap.contains(i))
-            {
-                newMap[newIndex++] = m_profileSettingsMap[i];
-            }
-        }
-        m_profileSettingsMap = newMap;
+        // Remove from settings list
+        m_profileSettingsList.removeAt(removedRow);
+
+        qDebug() << "Removed profile at row" << removedRow
+                 << "new settings list size:" << m_profileSettingsList.size();
 
         // Select another profile if available
         if (m_aiListModel->rowCount() > 0)
         {
             int newSelection = (removedRow < m_aiListModel->rowCount()) ?
                                    removedRow : m_aiListModel->rowCount() - 1;
+            m_currentProfileIndex = newSelection;
             ui->lv_AIList->setCurrentIndex(m_aiListModel->index(newSelection, 0));
+        }
+        else
+        {
+            m_currentProfileIndex = -1;
         }
 
         qDebug() << "Removed AI profile:" << profileName;
@@ -503,25 +504,26 @@ void AiSettings::onRemoveAI()
 /**
  * @brief       Handle Move Up button click.
  * @details     Moves the selected AI profile one position up in the list.
- *              Updates both the list model and the settings map accordingly.
+ *              Updates both the list model and the settings list accordingly.
  */
 void AiSettings::onMoveUp()
 {
-    QModelIndex currentIndex = ui->lv_AIList->currentIndex();
-    if (!currentIndex.isValid())
+    if (m_currentProfileIndex <= 0)
     {
-        QMessageBox::information(this, tr("Information"),
-                                 tr("No profile selected to move!"));
+        if (m_currentProfileIndex == 0)
+        {
+            QMessageBox::information(this, tr("Information"),
+                                     tr("Cannot move the first profile up!"));
+        }
+        else
+        {
+            QMessageBox::information(this, tr("Information"),
+                                     tr("No profile selected to move!"));
+        }
         return;
     }
 
-    int row = currentIndex.row();
-    if (row == 0)
-    {
-        QMessageBox::information(this, tr("Information"),
-                                 tr("Cannot move the first profile up!"));
-        return;
-    }
+    int row = m_currentProfileIndex;
 
     // Save current settings before moving
     saveCurrentProfileSettings();
@@ -530,12 +532,11 @@ void AiSettings::onMoveUp()
     QStandardItem *itemToMove = m_aiListModel->takeItem(row);
     m_aiListModel->insertRow(row - 1, itemToMove);
 
-    // Swap settings in the map
-    QMap<QString, QVariant> tempSettings = m_profileSettingsMap[row];
-    m_profileSettingsMap[row] = m_profileSettingsMap[row - 1];
-    m_profileSettingsMap[row - 1] = tempSettings;
+    // Swap settings in the list
+    m_profileSettingsList.swapItemsAt(row, row - 1);
 
     // Update selection
+    m_currentProfileIndex = row - 1;
     ui->lv_AIList->setCurrentIndex(m_aiListModel->index(row - 1, 0));
 
     qDebug() << "Moved profile up from row" << row << "to" << (row - 1);
@@ -544,25 +545,26 @@ void AiSettings::onMoveUp()
 /**
  * @brief       Handle Move Down button click.
  * @details     Moves the selected AI profile one position down in the list.
- *              Updates both the list model and the settings map accordingly.
+ *              Updates both the list model and the settings list accordingly.
  */
 void AiSettings::onMoveDown()
 {
-    QModelIndex currentIndex = ui->lv_AIList->currentIndex();
-    if (!currentIndex.isValid())
+    if (m_currentProfileIndex < 0 || m_currentProfileIndex >= m_aiListModel->rowCount() - 1)
     {
-        QMessageBox::information(this, tr("Information"),
-                                 tr("No profile selected to move!"));
+        if (m_currentProfileIndex == m_aiListModel->rowCount() - 1)
+        {
+            QMessageBox::information(this, tr("Information"),
+                                     tr("Cannot move the last profile down!"));
+        }
+        else
+        {
+            QMessageBox::information(this, tr("Information"),
+                                     tr("No profile selected to move!"));
+        }
         return;
     }
 
-    int row = currentIndex.row();
-    if (row == m_aiListModel->rowCount() - 1)
-    {
-        QMessageBox::information(this, tr("Information"),
-                                 tr("Cannot move the last profile down!"));
-        return;
-    }
+    int row = m_currentProfileIndex;
 
     // Save current settings before moving
     saveCurrentProfileSettings();
@@ -571,12 +573,11 @@ void AiSettings::onMoveDown()
     QStandardItem *itemToMove = m_aiListModel->takeItem(row);
     m_aiListModel->insertRow(row + 1, itemToMove);
 
-    // Swap settings in the map
-    QMap<QString, QVariant> tempSettings = m_profileSettingsMap[row];
-    m_profileSettingsMap[row] = m_profileSettingsMap[row + 1];
-    m_profileSettingsMap[row + 1] = tempSettings;
+    // Swap settings in the list
+    m_profileSettingsList.swapItemsAt(row, row + 1);
 
     // Update selection
+    m_currentProfileIndex = row + 1;
     ui->lv_AIList->setCurrentIndex(m_aiListModel->index(row + 1, 0));
 
     qDebug() << "Moved profile down from row" << row << "to" << (row + 1);

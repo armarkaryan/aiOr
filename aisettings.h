@@ -7,7 +7,7 @@
  *
  * @author      Arthur Markaryan
  * @date        10.05.2026
- * @version     1.1.2
+ * @version     1.1.3
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -16,6 +16,7 @@
  * - Ui::AiSettings (generated from .ui file)
  *
  * @par ChangeLog:
+ * 10.05.2026   v1.1.3  Arthur Markaryan - Fix profile removal and reindexing logic with sequential list
  * 10.05.2026   v1.1.2  Arthur Markaryan - Fix profile settings separation
  * 10.05.2026   v1.1.1  Arthur Markaryan - Add list management buttons handlers
  * 10.05.2026   v1.1    Arthur Markaryan - Add base save/load functionality
@@ -32,6 +33,7 @@
 #include <QDialog>
 #include <QAbstractButton>
 #include <QMap>
+#include <QList>
 #include <QStandardItemModel>
 
 namespace Ui {
@@ -133,16 +135,17 @@ private slots:
     /**
      * @brief       Handle settings changed by user.
      * @details     Called when any input field is modified. Immediately saves
-     *              the current profile settings to the map.
+     *              the current profile settings to the list.
      */
     void onSettingsChanged();
 
 private:
-    Ui::AiSettings *ui;	///< Pointer to the UI components generated from .ui file
+    Ui::AiSettings *ui; ///< Pointer to the UI components generated from .ui file
 
-    QStandardItemModel *m_aiListModel;	///< Model for the AI list view
-    QMap<int, QMap<QString, QVariant>> m_profileSettingsMap;	///< Map storing settings for each profile
-    bool m_suppressAutoSave;	///< Flag to suppress auto-save during operations
+    QStandardItemModel *m_aiListModel; ///< Model for the AI list view
+    QList<QMap<QString, QVariant>> m_profileSettingsList; ///< List storing settings for each profile in order
+    bool m_suppressAutoSave; ///< Flag to suppress auto-save during operations
+    int m_currentProfileIndex; ///< Currently selected profile index
 
     /**
      * @brief       Display settings for the selected profile.
