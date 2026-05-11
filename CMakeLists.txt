@@ -34,6 +34,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         api_key_reader.h
         chatlist.h chatlist.cpp chatlist.ui
         aisettings.h aisettings.cpp aisettings.ui
+        utils.h
 
 
     )
