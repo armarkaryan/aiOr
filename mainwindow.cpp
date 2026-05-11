@@ -22,6 +22,7 @@
  * - api_key_reader.h (API key utility)
  *
  * @par ChangeLog:
+ * 11.05.2026   v1.4.3  Arthur Markaryan - Add pretty hello to debug console"
  * 10.05.2026   v1.4.2  Arthur Markaryan - Add assistant name display instead of generic "AI:"
  * 10.05.2026   v1.4.1  Arthur Markaryan - Fix streaming response handling
  * 09.05.2026   v1.4.0  Arthur Markaryan - Integrate AI settings profiles with main window
@@ -57,6 +58,8 @@
 #include <QTextCursor>
 #include <QMetaType>
 
+#include "utils.h"
+
 #include "error_codes_deepseek.h"
 #include "error_codes_groq.h"
 #include "api_key_reader.h"
@@ -76,6 +79,8 @@ MainWindow::MainWindow(QWidget *parent)
     , m_currentProfileIndex(-1)
 {
     ui->setupUi(this);
+
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, "aiOr - AI Chat Client started");
 
     // Configure chat history display
     ui->te_ChatHistory->setReadOnly(true);          // Read-only for display only
