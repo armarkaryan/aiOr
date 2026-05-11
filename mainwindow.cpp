@@ -11,6 +11,8 @@
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
+ * par ToDo:    Proced stream response from AI
+ *
  * @par Dependencies:
  * - mainwindow.h (class declaration)
  * - ui_mainwindow.h (generated UI form)

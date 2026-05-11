@@ -11,6 +11,8 @@
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
+ * par ToDo:    Proced stream response from AI
+ *
  * @par ChangeLog:
  * 10.05.2026   v1.4.2  Arthur Markaryan - Add assistant name display instead of generic "AI:"
  * 10.05.2026   v1.4.1  Arthur Markaryan - Fix streaming response handling
