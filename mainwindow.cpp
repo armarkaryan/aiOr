@@ -6,7 +6,7 @@
  *
  * @author      Arthur Markaryan
  * @date        12.05.2026
- * @version     1.5.1
+ * @version     1.5.2
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -22,6 +22,7 @@
  * - utils.h (debug macros)
  *
  * @par ChangeLog:
+ * 12.05.2026   v1.5.2  Arthur Markaryan - Replace qDebug with UTILS_message macro
  * 12.05.2026   v1.5.1  Arthur Markaryan - Fix bug with updateProfileComboBox() double emit
  * 12.05.2026   v1.5    Arthur Markaryan - Move AI proced to the AiProcessor class
  * 11.05.2026   v1.4.3  Arthur Markaryan - Add pretty hello to debug console
@@ -142,7 +143,7 @@ void MainWindow::on_pb_Send_clicked()
  */
 void MainWindow::on_tb_AI_Settings_clicked()
 {
-    qDebug() << "Settings button clicked!";
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, "Settings button clicked!");
 
     AiSettings *settingsDialog = new AiSettings(this);
     settingsDialog->setWindowTitle("AI Settings");
@@ -173,7 +174,7 @@ void MainWindow::on_cb_AI_currentIndexChanged(int index)
         }
         else
         {
-            qDebug() << "Same profile index, skipping reapplication:" << index;
+            UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Same profile index, skipping reapplication: %1").arg(index).toUtf8().constData());
         }
     }
 }
@@ -185,7 +186,7 @@ void MainWindow::on_cb_AI_currentIndexChanged(int index)
  */
 void MainWindow::onSettingsChanged()
 {
-    qDebug() << "Settings changed, reloading profiles...";
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, "Settings changed, reloading profiles...");
 
     loadProfilesFromSettings();
     updateProfileComboBox();
@@ -247,7 +248,7 @@ void MainWindow::onStreamCompleted(const QString &fullResponse)
     currentText += config.assistantName + ": " + fullResponse;
     ui->te_ChatHistory->setMarkdown(currentText);
 
-    qDebug() << "Streaming response displayed, length:" << fullResponse.length();
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Streaming response displayed, length: %1").arg(fullResponse.length()).toUtf8().constData());
 }
 
 /**
@@ -334,12 +335,12 @@ void MainWindow::loadProfilesFromSettings()
 
     m_profiles.clear();
 
-    qDebug() << "Loading profiles from:" << configPath;
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Loading profiles from: %1").arg(configPath).toUtf8().constData());
 
     // If settings file doesn't exist, use default profiles as fallback
     if (!QFile::exists(configPath))
     {
-        qDebug() << "AI settings file does not exist, using default fallback profiles";
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_WARNING, "AI settings file does not exist, using default fallback profiles");
 
         AiConfig defaultProfile;
         defaultProfile.name = "DeepSeek (Default)";
@@ -364,7 +365,7 @@ void MainWindow::loadProfilesFromSettings()
         if (!name.isEmpty())
         {
             profileNames.append(name);
-            qDebug() << "  Found profile name:" << name;
+            UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("  Found profile name: %1").arg(name).toUtf8().constData());
         }
     }
     settings.endArray();
@@ -422,18 +423,16 @@ void MainWindow::loadProfilesFromSettings()
         }
 
         m_profiles.append(profile);
-        qDebug() << "  Loaded profile:" << profile.name
-                 << "model:" << profile.model
-                 << "stream:" << profile.stream;
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("  Loaded profile: %1 model: %2 stream: %3").arg(profile.name).arg(profile.model).arg(profile.stream).toUtf8().constData());
     }
     settings.endArray();
 
     if (m_profiles.isEmpty())
     {
-        qDebug() << "No profiles found in settings file";
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_WARNING, "No profiles found in settings file");
     }
 
-    qDebug() << "Profiles loaded successfully, count:" << m_profiles.size();
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Profiles loaded successfully, count: %1").arg(m_profiles.size()).toUtf8().constData());
 }
 
 /**
@@ -469,7 +468,7 @@ void MainWindow::updateProfileComboBox()
     connect(ui->cb_AI, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MainWindow::on_cb_AI_currentIndexChanged);
 
-    qDebug() << "Profile combo box updated with" << m_profiles.size() << "items";
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Profile combo box updated with %1 items").arg(m_profiles.size()).toUtf8().constData());
 }
 
 /**
@@ -483,7 +482,7 @@ void MainWindow::applyProfileSettings(int profileIndex)
 {
     if (profileIndex < 0 || profileIndex >= m_profiles.size())
     {
-        qDebug() << "Invalid profile index:" << profileIndex;
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_ERROR, QString("Invalid profile index: %1").arg(profileIndex).toUtf8().constData());
         return;
     }
 
@@ -493,12 +492,7 @@ void MainWindow::applyProfileSettings(int profileIndex)
     m_aiProcessor->setConfig(profile);
     m_currentProfileIndex = profileIndex;
 
-    qDebug() << "Applied profile:" << profile.name
-             << "Model:" << profile.model
-             << "URL:" << profile.url
-             << "Max tokens:" << profile.max_tokens
-             << "Temperature:" << profile.temperature
-             << "Stream:" << profile.stream;
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Applied profile: %1 Model: %2 URL: %3 Max tokens: %4 Temperature: %5 Stream: %6").arg(profile.name).arg(profile.model).arg(profile.url).arg(profile.max_tokens).arg(profile.temperature).arg(profile.stream).toUtf8().constData());
 
     // Validate and warn about missing settings
     if (profile.url.isEmpty())
