@@ -1,7 +1,7 @@
 /**
  * @file        mainwindow.cpp
  * @brief       Main Window implementation for aiOr application.
- * @details     Implements the main user interface functionality using AIProcessor
+ * @details     Implements the main user interface functionality using AiProcessor
  *              for AI API communication, markdown rendering, and profile management.
  *
  * @author      Arthur Markaryan
@@ -21,7 +21,7 @@
  * - api_key_reader.h (API key utility)
  *
  * @par ChangeLog:
- * 12.05.2026   v1.5    Arthur Markaryan - Move AI proced to the AIProcessor class
+ * 12.05.2026   v1.5    Arthur Markaryan - Move AI proced to the AiProcessor class
  * 11.05.2026   v1.4.3  Arthur Markaryan - Add pretty hello to debug console"
  * 10.05.2026   v1.4.2  Arthur Markaryan - Add assistant name display instead of generic "AI:"
  * 10.05.2026   v1.4.1  Arthur Markaryan - Fix streaming response handling
@@ -64,7 +64,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , m_aiProcessor(new AIProcessor(this))
+    , m_aiProcessor(new AiProcessor(this))
     , m_currentProfileIndex(-1)
 {
     ui->setupUi(this);
@@ -77,18 +77,18 @@ MainWindow::MainWindow(QWidget *parent)
 
     setWindowTitle("aiOr - AI Chat Client");
 
-    // Connect AIProcessor signals
-    connect(m_aiProcessor, &AIProcessor::streamChunkReceived,
+    // Connect AiProcessor signals
+    connect(m_aiProcessor, &AiProcessor::streamChunkReceived,
             this, &MainWindow::onStreamChunkReceived);
-    connect(m_aiProcessor, &AIProcessor::streamCompleted,
+    connect(m_aiProcessor, &AiProcessor::streamCompleted,
             this, &MainWindow::onStreamCompleted);
-    connect(m_aiProcessor, &AIProcessor::responseReceived,
+    connect(m_aiProcessor, &AiProcessor::responseReceived,
             this, &MainWindow::onResponseReceived);
-    connect(m_aiProcessor, &AIProcessor::errorOccurred,
+    connect(m_aiProcessor, &AiProcessor::errorOccurred,
             this, &MainWindow::onErrorOccurred);
-    connect(m_aiProcessor, &AIProcessor::requestStarted,
+    connect(m_aiProcessor, &AiProcessor::requestStarted,
             this, &MainWindow::onRequestStarted);
-    connect(m_aiProcessor, &AIProcessor::requestFinished,
+    connect(m_aiProcessor, &AiProcessor::requestFinished,
             this, &MainWindow::onRequestFinished);
 
     // Load profiles from settings file
@@ -178,7 +178,7 @@ void MainWindow::onSettingsChanged()
 }
 
 /**
- * @brief       Handles streaming chunk received from AIProcessor.
+ * @brief       Handles streaming chunk received from AiProcessor.
  * @param       chunk       Partial content chunk received
  * @param       accumulated Full accumulated content so far
  */
@@ -194,7 +194,7 @@ void MainWindow::onStreamChunkReceived(const QString &chunk, const QString &accu
         currentText += '\n';
     }
 
-    AIConfig config = m_aiProcessor->getConfig();
+    AiConfig config = m_aiProcessor->getConfig();
     currentText += config.assistantName + ": " + accumulated;
     ui->te_ChatHistory->setMarkdown(currentText);
 
@@ -205,7 +205,7 @@ void MainWindow::onStreamChunkReceived(const QString &chunk, const QString &accu
 }
 
 /**
- * @brief       Handles streaming completion from AIProcessor.
+ * @brief       Handles streaming completion from AiProcessor.
  * @param       fullResponse   Complete accumulated response content
  */
 void MainWindow::onStreamCompleted(const QString &fullResponse)
@@ -218,7 +218,7 @@ void MainWindow::onStreamCompleted(const QString &fullResponse)
         currentText += '\n';
     }
 
-    AIConfig config = m_aiProcessor->getConfig();
+    AiConfig config = m_aiProcessor->getConfig();
     currentText += config.assistantName + ": " + fullResponse;
     ui->te_ChatHistory->setMarkdown(currentText);
 
@@ -226,17 +226,17 @@ void MainWindow::onStreamCompleted(const QString &fullResponse)
 }
 
 /**
- * @brief       Handles non-streaming response from AIProcessor.
+ * @brief       Handles non-streaming response from AiProcessor.
  * @param       response    Complete response content
  */
 void MainWindow::onResponseReceived(const QString &response)
 {
-    AIConfig config = m_aiProcessor->getConfig();
+    AiConfig config = m_aiProcessor->getConfig();
     appendToChat(response, config.assistantName + ": ");
 }
 
 /**
- * @brief       Handles errors from AIProcessor.
+ * @brief       Handles errors from AiProcessor.
  * @param       errorMessage    Human-readable error message
  * @param       errorCode       HTTP status code or network error code
  */
@@ -272,7 +272,7 @@ void MainWindow::onErrorOccurred(const QString &errorMessage, int errorCode)
 }
 
 /**
- * @brief       Handles request start from AIProcessor.
+ * @brief       Handles request start from AiProcessor.
  * @param       model       Model being used for the request
  * @param       isStreaming Whether streaming mode is enabled
  */
@@ -283,7 +283,7 @@ void MainWindow::onRequestStarted(const QString &model, bool isStreaming)
 }
 
 /**
- * @brief       Handles request finish from AIProcessor.
+ * @brief       Handles request finish from AiProcessor.
  */
 void MainWindow::onRequestFinished()
 {
@@ -307,7 +307,7 @@ void MainWindow::loadProfilesFromSettings()
     {
         qDebug() << "AI settings file does not exist, using default fallback profiles";
 
-        AIConfig defaultProfile;
+        AiConfig defaultProfile;
         defaultProfile.name = "DeepSeek (Default)";
         defaultProfile.model = "deepseek-chat";
         defaultProfile.url = "https://api.deepseek.com/v1/chat/completions";
@@ -340,7 +340,7 @@ void MainWindow::loadProfilesFromSettings()
 
     for (int i = 0; i < profileNames.size(); ++i)
     {
-        AIConfig profile;
+        AiConfig profile;
         profile.name = profileNames[i];
 
         if (i < settingsSize)
@@ -412,7 +412,7 @@ void MainWindow::updateProfileComboBox()
 
     ui->cb_AI->clear();
 
-    for (const AIConfig &profile : m_profiles)
+    for (const AiConfig &profile : m_profiles)
     {
         ui->cb_AI->addItem(profile.name);
     }
@@ -445,7 +445,7 @@ void MainWindow::applyProfileSettings(int profileIndex)
         return;
     }
 
-    const AIConfig &profile = m_profiles[profileIndex];
+    const AiConfig &profile = m_profiles[profileIndex];
 
     // Apply all settings to AI processor
     m_aiProcessor->setConfig(profile);
@@ -509,7 +509,7 @@ QString MainWindow::removeStreamingLine(const QString &currentText) const
     if (lastNewline != -1)
     {
         QString lastLine = currentText.mid(lastNewline + 1);
-        AIConfig config = m_aiProcessor->getConfig();
+        AiConfig config = m_aiProcessor->getConfig();
         QString prefix = config.assistantName + ": ";
         if (lastLine.startsWith(prefix))
         {

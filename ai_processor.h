@@ -1,7 +1,7 @@
 /**
  * @file        ai_processor.h
  * @brief       AI Processor header for aiOr application.
- * @details     Contains the AIProcessor class which handles all AI API communication
+ * @details     Contains the AiProcessor class which handles all AI API communication
  *              including network requests, response parsing (both streaming and
  *              non-streaming), and error handling. This class is non-graphical.
  *
@@ -31,7 +31,7 @@
  *              including model selection, endpoint URL, authentication key,
  *              and generation parameters.
  */
-struct AIConfig
+struct AiConfig
 {
     QString name = "";                          //!< Profile display name
     QString model = "";                         //!< AI model name
@@ -50,33 +50,33 @@ struct AIConfig
  *              and signal emissions for UI updates. This class is non-graphical
  *              and can be used independently of any UI framework.
  */
-class AIProcessor : public QObject
+class AiProcessor : public QObject
 {
     Q_OBJECT
 
 public:
     /**
-     * @brief       Constructor for AIProcessor.
+     * @brief       Constructor for AiProcessor.
      * @param       parent  Parent QObject (default is nullptr)
      */
-    explicit AIProcessor(QObject *parent = nullptr);
+    explicit AiProcessor(QObject *parent = nullptr);
 
     /**
-     * @brief       Destructor for AIProcessor.
+     * @brief       Destructor for AiProcessor.
      */
-    ~AIProcessor();
+    ~AiProcessor();
 
     /**
      * @brief       Sets the AI configuration.
      * @param       config  New AI configuration
      */
-    void setConfig(const AIConfig &config);
+    void setConfig(const AiConfig &config);
 
     /**
      * @brief       Gets the current AI configuration.
      * @return      Current AI configuration
      */
-    AIConfig getConfig() const;
+    AiConfig getConfig() const;
 
     /**
      * @brief       Sends a message to the AI API.
@@ -169,7 +169,7 @@ private slots:
 private:
     QNetworkAccessManager *m_networkManager;    ///< Manages network requests to AI APIs
     QNetworkReply *m_currentReply;              ///< Current network reply for streaming operations
-    AIConfig m_config;                          ///< Current AI configuration
+    AiConfig m_config;                          ///< Current AI configuration
     QByteArray m_streamBuffer;                  ///< Buffer for incomplete streaming data chunks
     QString m_streamingContent;                 ///< Accumulated streaming response content
     bool m_isStreamingRequest;                  ///< Flag indicating if current request is streaming

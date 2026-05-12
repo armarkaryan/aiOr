@@ -3,7 +3,7 @@
  * @brief       Main Window header for aiOr application.
  * @details     Contains the MainWindow class declaration which serves as the primary
  *              user interface for the application. Manages AI chat interactions
- *              using AIProcessor for backend communication.
+ *              using AiProcessor for backend communication.
  *
  * @author      Arthur Markaryan
  * @date        12.05.2026
@@ -14,7 +14,7 @@
  * par ToDo:    Proced stream response from AI
  *
  * @par ChangeLog:
- * 12.05.2026   v1.5    Arthur Markaryan - Move AI proced to the AIProcessor class
+ * 12.05.2026   v1.5    Arthur Markaryan - Move AI proced to the AiProcessor class
  * 11.05.2026   v1.4.3  Arthur Markaryan - Add pretty hello to debug console"
  * 10.05.2026   v1.4.2  Arthur Markaryan - Add assistant name display instead of generic "AI:"
  * 10.05.2026   v1.4.1  Arthur Markaryan - Fix streaming response handling
@@ -53,7 +53,7 @@ QT_END_NAMESPACE
 /**
  * @brief       Main Window class for aiOr application.
  * @details     Provides the primary user interface for AI chat interactions.
- *              Uses AIProcessor for all AI API communication including
+ *              Uses AiProcessor for all AI API communication including
  *              sending messages, processing responses (both streaming and
  *              non-streaming), and error handling.
  */
@@ -96,47 +96,47 @@ private slots:
     void onSettingsChanged();
 
     /**
-     * @brief       Handles streaming chunk received from AIProcessor.
+     * @brief       Handles streaming chunk received from AiProcessor.
      * @param       chunk       Partial content chunk received
      * @param       accumulated Full accumulated content so far
      */
     void onStreamChunkReceived(const QString &chunk, const QString &accumulated);
 
     /**
-     * @brief       Handles streaming completion from AIProcessor.
+     * @brief       Handles streaming completion from AiProcessor.
      * @param       fullResponse   Complete accumulated response content
      */
     void onStreamCompleted(const QString &fullResponse);
 
     /**
-     * @brief       Handles non-streaming response from AIProcessor.
+     * @brief       Handles non-streaming response from AiProcessor.
      * @param       response    Complete response content
      */
     void onResponseReceived(const QString &response);
 
     /**
-     * @brief       Handles errors from AIProcessor.
+     * @brief       Handles errors from AiProcessor.
      * @param       errorMessage    Human-readable error message
      * @param       errorCode       HTTP status code or network error code
      */
     void onErrorOccurred(const QString &errorMessage, int errorCode);
 
     /**
-     * @brief       Handles request start from AIProcessor.
+     * @brief       Handles request start from AiProcessor.
      * @param       model       Model being used for the request
      * @param       isStreaming Whether streaming mode is enabled
      */
     void onRequestStarted(const QString &model, bool isStreaming);
 
     /**
-     * @brief       Handles request finish from AIProcessor.
+     * @brief       Handles request finish from AiProcessor.
      */
     void onRequestFinished();
 
 private:
     Ui::MainWindow *ui;                         ///< Pointer to the UI components
-    AIProcessor *m_aiProcessor;                 ///< AI communication processor
-    QList<AIConfig> m_profiles;                 ///< List of loaded AI profiles
+    AiProcessor *m_aiProcessor;                 ///< AI communication processor
+    QList<AiConfig> m_profiles;                 ///< List of loaded AI profiles
     int m_currentProfileIndex;                  ///< Currently selected profile index (-1 if none)
 
     /**

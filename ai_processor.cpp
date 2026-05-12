@@ -25,10 +25,10 @@
 #include <QDebug>
 
 /**
- * @brief       Constructor for AIProcessor.
+ * @brief       Constructor for AiProcessor.
  * @param       parent  Parent QObject (default is nullptr)
  */
-AIProcessor::AIProcessor(QObject *parent)
+AiProcessor::AiProcessor(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
     , m_currentReply(nullptr)
@@ -36,13 +36,13 @@ AIProcessor::AIProcessor(QObject *parent)
 {
     // Connect SSL error handler
     connect(m_networkManager, &QNetworkAccessManager::sslErrors,
-            this, &AIProcessor::onSslErrors);
+            this, &AiProcessor::onSslErrors);
 }
 
 /**
- * @brief       Destructor for AIProcessor.
+ * @brief       Destructor for AiProcessor.
  */
-AIProcessor::~AIProcessor()
+AiProcessor::~AiProcessor()
 {
     cancelCurrentRequest();
 }
@@ -51,7 +51,7 @@ AIProcessor::~AIProcessor()
  * @brief       Sets the AI configuration.
  * @param       config  New AI configuration
  */
-void AIProcessor::setConfig(const AIConfig &config)
+void AiProcessor::setConfig(const AiConfig &config)
 {
     m_config = config;
     // Use name as assistant name by default if assistantName not set
@@ -59,7 +59,7 @@ void AIProcessor::setConfig(const AIConfig &config)
     {
         m_config.assistantName = m_config.name.isEmpty() ? "AI" : m_config.name;
     }
-    qDebug() << "AIProcessor: Config updated - Model:" << m_config.model
+    qDebug() << "AiProcessor: Config updated - Model:" << m_config.model
              << "Stream:" << m_config.stream
              << "Assistant:" << m_config.assistantName;
 }
@@ -68,7 +68,7 @@ void AIProcessor::setConfig(const AIConfig &config)
  * @brief       Gets the current AI configuration.
  * @return      Current AI configuration
  */
-AIConfig AIProcessor::getConfig() const
+AiConfig AiProcessor::getConfig() const
 {
     return m_config;
 }
@@ -77,7 +77,7 @@ AIConfig AIProcessor::getConfig() const
  * @brief       Checks if a request is currently in progress.
  * @return      True if a request is active, false otherwise
  */
-bool AIProcessor::isRequestInProgress() const
+bool AiProcessor::isRequestInProgress() const
 {
     return (m_currentReply != nullptr);
 }
@@ -85,7 +85,7 @@ bool AIProcessor::isRequestInProgress() const
 /**
  * @brief       Cancels the current active request.
  */
-void AIProcessor::cancelCurrentRequest()
+void AiProcessor::cancelCurrentRequest()
 {
     if (m_currentReply)
     {
@@ -100,7 +100,7 @@ void AIProcessor::cancelCurrentRequest()
  * @brief       Sends a message to the AI API.
  * @param       message User message text to send
  */
-void AIProcessor::sendMessage(const QString &message)
+void AiProcessor::sendMessage(const QString &message)
 {
     // Validate configuration
     if (m_config.url.isEmpty())
@@ -133,9 +133,9 @@ void AIProcessor::sendMessage(const QString &message)
     // Build JSON payload
     QByteArray data = buildRequestPayload(message);
 
-    qDebug() << "AIProcessor: Sending request to:" << m_config.url;
-    qDebug() << "AIProcessor: Stream mode:" << (m_config.stream ? "enabled" : "disabled");
-    qDebug() << "AIProcessor: Model:" << m_config.model;
+    qDebug() << "AiProcessor: Sending request to:" << m_config.url;
+    qDebug() << "AiProcessor: Stream mode:" << (m_config.stream ? "enabled" : "disabled");
+    qDebug() << "AiProcessor: Model:" << m_config.model;
 
     m_isStreamingRequest = m_config.stream;
     emit requestStarted(m_config.model, m_isStreamingRequest);
@@ -171,7 +171,7 @@ void AIProcessor::sendMessage(const QString &message)
  * @param       reply   Network reply that encountered the error
  * @param       errors  List of SSL errors that occurred
  */
-void AIProcessor::onSslErrors(QNetworkReply *reply, const QList<QSslError> &errors)
+void AiProcessor::onSslErrors(QNetworkReply *reply, const QList<QSslError> &errors)
 {
     QString errorString;
     for (const QSslError &error : errors)
@@ -191,7 +191,7 @@ void AIProcessor::onSslErrors(QNetworkReply *reply, const QList<QSslError> &erro
  * @brief       Handles completion of network requests to AI API.
  * @param       reply   Network reply containing the API response
  */
-void AIProcessor::onReplyFinished(QNetworkReply *reply)
+void AiProcessor::onReplyFinished(QNetworkReply *reply)
 {
     if (reply != m_currentReply)
     {
@@ -231,9 +231,9 @@ void AIProcessor::onReplyFinished(QNetworkReply *reply)
         QString errorString = reply->errorString();
         QByteArray errorData = reply->readAll();
 
-        qDebug() << "AIProcessor: HTTP Error Code:" << httpCode;
-        qDebug() << "AIProcessor: Error String:" << errorString;
-        qDebug() << "AIProcessor: Error Data:" << QString(errorData);
+        qDebug() << "AiProcessor: HTTP Error Code:" << httpCode;
+        qDebug() << "AiProcessor: Error String:" << errorString;
+        qDebug() << "AiProcessor: Error Data:" << QString(errorData);
 
         QString userMessage;
 
@@ -306,7 +306,7 @@ void AIProcessor::onReplyFinished(QNetworkReply *reply)
 /**
  * @brief       Handles streaming data received from the AI API.
  */
-void AIProcessor::onReadyRead()
+void AiProcessor::onReadyRead()
 {
     if (!m_currentReply)
     {
@@ -337,7 +337,7 @@ void AIProcessor::onReadyRead()
  * @brief       Parses a streaming chunk from the AI API.
  * @param       chunk Raw chunk data from the streaming response
  */
-void AIProcessor::parseStreamChunk(const QByteArray &chunk)
+void AiProcessor::parseStreamChunk(const QByteArray &chunk)
 {
     QString chunkStr = QString::fromUtf8(chunk);
 
@@ -388,12 +388,12 @@ void AIProcessor::parseStreamChunk(const QByteArray &chunk)
 /**
  * @brief       Finalizes and emits the accumulated streaming response.
  */
-void AIProcessor::finalizeStreamingResponse()
+void AiProcessor::finalizeStreamingResponse()
 {
     if (!m_streamingContent.isEmpty())
     {
         emit streamCompleted(m_streamingContent);
-        qDebug() << "AIProcessor: Streaming response completed, length:" << m_streamingContent.length();
+        qDebug() << "AiProcessor: Streaming response completed, length:" << m_streamingContent.length();
         m_streamingContent.clear();
     }
 }
@@ -402,7 +402,7 @@ void AIProcessor::finalizeStreamingResponse()
  * @brief       Parses the AI API response (non-streaming mode).
  * @param       response Raw JSON response from the API
  */
-void AIProcessor::parseResponse(const QByteArray &response)
+void AiProcessor::parseResponse(const QByteArray &response)
 {
     // Clean the response: remove leading/trailing whitespace, BOM characters, etc.
     QByteArray cleanResponse = response.trimmed();
@@ -417,7 +417,7 @@ void AIProcessor::parseResponse(const QByteArray &response)
         cleanResponse = cleanResponse.trimmed();
     }
 
-    qDebug() << "AIProcessor: Response received (cleaned):" << QString(cleanResponse);
+    qDebug() << "AiProcessor: Response received (cleaned):" << QString(cleanResponse);
 
     // Check if response is empty
     if (cleanResponse.isEmpty())
@@ -469,12 +469,12 @@ void AIProcessor::parseResponse(const QByteArray &response)
             QJsonObject error = json["error"].toObject();
             QString errorMsg = error["message"].toString();
             emit errorOccurred(errorMsg, 0);
-            qDebug() << "AIProcessor: API Error:" << errorMsg;
+            qDebug() << "AiProcessor: API Error:" << errorMsg;
         }
         else
         {
             emit errorOccurred("Unexpected response format from API", 0);
-            qDebug() << "AIProcessor: Unexpected response JSON:" << QString(cleanResponse);
+            qDebug() << "AiProcessor: Unexpected response JSON:" << QString(cleanResponse);
         }
     }
     else
@@ -488,7 +488,7 @@ void AIProcessor::parseResponse(const QByteArray &response)
         else if (responseStr.length() > 0)
         {
             emit errorOccurred("Invalid JSON format received from API", 0);
-            qDebug() << "AIProcessor: Invalid JSON response:" << responseStr;
+            qDebug() << "AiProcessor: Invalid JSON response:" << responseStr;
         }
         else
         {
@@ -502,7 +502,7 @@ void AIProcessor::parseResponse(const QByteArray &response)
  * @param       message User message to include in the payload
  * @return      JSON document as QByteArray
  */
-QByteArray AIProcessor::buildRequestPayload(const QString &message) const
+QByteArray AiProcessor::buildRequestPayload(const QString &message) const
 {
     QJsonObject json;
     json["model"] = m_config.model;
@@ -525,7 +525,7 @@ QByteArray AIProcessor::buildRequestPayload(const QString &message) const
 /**
  * @brief       Cleans up streaming resources.
  */
-void AIProcessor::cleanupStreamingResources()
+void AiProcessor::cleanupStreamingResources()
 {
     m_streamBuffer.clear();
     m_streamingContent.clear();
