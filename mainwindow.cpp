@@ -6,11 +6,11 @@
  *
  * @author      Arthur Markaryan
  * @date        12.05.2026
- * @version     1.5
+ * @version     1.5.1
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
- * par ToDo:    Proced stream response from AI
+ * @par ToDo:   Process stream response from AI
  *
  * @par Dependencies:
  * - mainwindow.h (class declaration)
@@ -19,10 +19,12 @@
  * - error_codes_deepseek.h (DeepSeek API error codes)
  * - error_codes_groq.h (Groq API error codes)
  * - api_key_reader.h (API key utility)
+ * - utils.h (debug macros)
  *
  * @par ChangeLog:
+ * 12.05.2026   v1.5.1  Arthur Markaryan - Fix bug with updateProfileComboBox() double emit
  * 12.05.2026   v1.5    Arthur Markaryan - Move AI proced to the AiProcessor class
- * 11.05.2026   v1.4.3  Arthur Markaryan - Add pretty hello to debug console"
+ * 11.05.2026   v1.4.3  Arthur Markaryan - Add pretty hello to debug console
  * 10.05.2026   v1.4.2  Arthur Markaryan - Add assistant name display instead of generic "AI:"
  * 10.05.2026   v1.4.1  Arthur Markaryan - Fix streaming response handling
  * 09.05.2026   v1.4.0  Arthur Markaryan - Integrate AI settings profiles with main window
@@ -34,7 +36,7 @@
  * 09.01.2026   v1.3.2.1Arthur Markaryan - Add Chat List widget class & ui
  * 04.01.2026   v1.3.2  Arthur Markaryan - Add Groq error code header file
  * 04.01.2026   v1.3.1  Arthur Markaryan - Add Groq test
- * 14.11.2025   v1.3    Arthur Markaryan - Added any model selection capibility
+ * 14.11.2025   v1.3    Arthur Markaryan - Added any model selection capability
  * 09.11.2025   v1.2    Arthur Markaryan - Added API-key reader
  * 09.11.2025   v1.1    Arthur Markaryan - Added error checking
  * 08.11.2025   v1.0    Arthur Markaryan - Initial implementation
@@ -42,6 +44,7 @@
  * @see         MainWindow
  * @see         ApiKeyReader
  * @see         AiSettings
+ * @see         AiProcessor
  */
 
 #include "mainwindow.h"
@@ -56,10 +59,14 @@
 #include <QComboBox>
 
 #include "api_key_reader.h"
+#include "utils.h"
 
 /**
  * @brief       Constructor for MainWindow.
  * @param       parent  Parent widget (default is nullptr)
+ * @details     Initializes the user interface, configures the chat history display,
+ *              connects AiProcessor signals, loads AI profiles from settings,
+ *              and populates the profile selection combo box.
  */
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -69,7 +76,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    qDebug() << "aiOr - AI Chat Client started";
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, "aiOr - AI Chat Client started");
 
     // Configure chat history display
     ui->te_ChatHistory->setReadOnly(true);
@@ -96,16 +103,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Update combo box with profile names
     updateProfileComboBox();
-
-    // Apply first profile if available
-    if (m_profiles.size() > 0)
-    {
-        applyProfileSettings(0);
-    }
 }
 
 /**
  * @brief       Destructor for MainWindow.
+ * @details     Cleans up allocated UI resources.
  */
 MainWindow::~MainWindow()
 {
@@ -114,6 +116,9 @@ MainWindow::~MainWindow()
 
 /**
  * @brief       Handles click events on the Send button.
+ * @details     Retrieves user input from the message text edit, adds it to the
+ *              chat history, clears the input field, and forwards the message
+ *              to AiProcessor for API communication.
  */
 void MainWindow::on_pb_Send_clicked()
 {
@@ -124,13 +129,16 @@ void MainWindow::on_pb_Send_clicked()
         appendToChat(message, "You: ");
         ui->te_Message->clear();
 
-        // Send request to AI API
+        // Send request to AI API via AiProcessor
         m_aiProcessor->sendMessage(message);
     }
 }
 
 /**
  * @brief       Handles click events on the AI Settings button.
+ * @details     Creates and displays the AI Settings dialog. The dialog is set
+ *              to delete itself when closed (WA_DeleteOnClose). Connects to
+ *              the settingsChanged signal to reload profiles when settings are updated.
  */
 void MainWindow::on_tb_AI_Settings_clicked()
 {
@@ -149,18 +157,31 @@ void MainWindow::on_tb_AI_Settings_clicked()
 /**
  * @brief       Handles AI profile selection change in combo box.
  * @param       index   Index of the selected AI profile
+ * @details     Checks if the selected profile is different from the current one
+ *              before applying changes to prevent unnecessary reconfiguration.
+ *              Updates the status bar with the new profile name.
  */
 void MainWindow::on_cb_AI_currentIndexChanged(int index)
 {
     if (index >= 0 && index < m_profiles.size())
     {
-        applyProfileSettings(index);
-        ui->sb_Main->showMessage(QString("Switched to profile: %1").arg(m_profiles[index].name), 2000);
+        // Check if this is a different profile
+        if (m_currentProfileIndex != index)
+        {
+            applyProfileSettings(index);
+            ui->sb_Main->showMessage(QString("Switched to profile: %1").arg(m_profiles[index].name), 2000);
+        }
+        else
+        {
+            qDebug() << "Same profile index, skipping reapplication:" << index;
+        }
     }
 }
 
 /**
  * @brief       Called when AI settings are changed in the settings dialog.
+ * @details     Reloads all profiles from the settings file, updates the combo box,
+ *              and applies the first profile if available.
  */
 void MainWindow::onSettingsChanged()
 {
@@ -179,8 +200,10 @@ void MainWindow::onSettingsChanged()
 
 /**
  * @brief       Handles streaming chunk received from AiProcessor.
- * @param       chunk       Partial content chunk received
+ * @param       chunk       Partial content chunk received (unused directly)
  * @param       accumulated Full accumulated content so far
+ * @details     Updates the chat display in real-time by replacing the current
+ *              streaming line with the accumulated content. Auto-scrolls to bottom.
  */
 void MainWindow::onStreamChunkReceived(const QString &chunk, const QString &accumulated)
 {
@@ -207,6 +230,8 @@ void MainWindow::onStreamChunkReceived(const QString &chunk, const QString &accu
 /**
  * @brief       Handles streaming completion from AiProcessor.
  * @param       fullResponse   Complete accumulated response content
+ * @details     Finalizes the streaming response by removing the temporary
+ *              streaming line and adding the complete response.
  */
 void MainWindow::onStreamCompleted(const QString &fullResponse)
 {
@@ -228,6 +253,7 @@ void MainWindow::onStreamCompleted(const QString &fullResponse)
 /**
  * @brief       Handles non-streaming response from AiProcessor.
  * @param       response    Complete response content
+ * @details     Appends the complete AI response to the chat history.
  */
 void MainWindow::onResponseReceived(const QString &response)
 {
@@ -239,6 +265,8 @@ void MainWindow::onResponseReceived(const QString &response)
  * @brief       Handles errors from AiProcessor.
  * @param       errorMessage    Human-readable error message
  * @param       errorCode       HTTP status code or network error code
+ * @details     Displays error message with helpful solution suggestions based
+ *              on the error content (API URL, authentication, balance, rate limits).
  */
 void MainWindow::onErrorOccurred(const QString &errorMessage, int errorCode)
 {
@@ -275,6 +303,7 @@ void MainWindow::onErrorOccurred(const QString &errorMessage, int errorCode)
  * @brief       Handles request start from AiProcessor.
  * @param       model       Model being used for the request
  * @param       isStreaming Whether streaming mode is enabled
+ * @details     Updates the status bar to indicate active request with model name and mode.
  */
 void MainWindow::onRequestStarted(const QString &model, bool isStreaming)
 {
@@ -284,6 +313,7 @@ void MainWindow::onRequestStarted(const QString &model, bool isStreaming)
 
 /**
  * @brief       Handles request finish from AiProcessor.
+ * @details     Clears the status bar message.
  */
 void MainWindow::onRequestFinished()
 {
@@ -292,6 +322,10 @@ void MainWindow::onRequestFinished()
 
 /**
  * @brief       Loads profiles from AiSettings configuration file.
+ * @details     Reads the 'aisettings.set' INI file from the application directory.
+ *              The file contains two arrays: 'AI/PROFILES' for profile names and
+ *              'AI/PROFILES_SETTINGS' for the corresponding configuration values.
+ *              If the file doesn't exist, creates a default fallback profile.
  */
 void MainWindow::loadProfilesFromSettings()
 {
@@ -404,9 +438,12 @@ void MainWindow::loadProfilesFromSettings()
 
 /**
  * @brief       Updates the combo box with loaded profile names.
+ * @details     Temporarily disconnects the signal to prevent double emissions
+ *              during population. Restores the connection after updating.
  */
 void MainWindow::updateProfileComboBox()
 {
+    // Disconnect signal temporarily
     disconnect(ui->cb_AI, QOverload<int>::of(&QComboBox::currentIndexChanged),
                this, &MainWindow::on_cb_AI_currentIndexChanged);
 
@@ -417,6 +454,7 @@ void MainWindow::updateProfileComboBox()
         ui->cb_AI->addItem(profile.name);
     }
 
+    // Set the current index
     if (m_currentProfileIndex >= 0 && m_currentProfileIndex < m_profiles.size())
     {
         ui->cb_AI->setCurrentIndex(m_currentProfileIndex);
@@ -424,9 +462,10 @@ void MainWindow::updateProfileComboBox()
     else if (m_profiles.size() > 0)
     {
         ui->cb_AI->setCurrentIndex(0);
-        m_currentProfileIndex = 0;
+        // Do NOT update m_currentProfileIndex here - let the signal handle it
     }
 
+    // Reconnect signal
     connect(ui->cb_AI, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MainWindow::on_cb_AI_currentIndexChanged);
 
@@ -436,6 +475,9 @@ void MainWindow::updateProfileComboBox()
 /**
  * @brief       Applies the selected profile settings to the AI configuration.
  * @param       profileIndex Index of the profile to apply
+ * @details     Configures the AiProcessor with the selected profile's settings.
+ *              Validates required fields (API URL, API key) and shows warnings
+ *              if they are missing. Updates the status bar with the profile name.
  */
 void MainWindow::applyProfileSettings(int profileIndex)
 {
@@ -479,6 +521,8 @@ void MainWindow::applyProfileSettings(int profileIndex)
  * @brief       Appends text to chat history with optional prefix.
  * @param       text    Text to append
  * @param       prefix  Optional prefix (default is empty)
+ * @details     Preserves markdown formatting, adds a newline if needed,
+ *              and auto-scrolls to the bottom of the chat view.
  */
 void MainWindow::appendToChat(const QString &text, const QString &prefix)
 {
@@ -502,6 +546,9 @@ void MainWindow::appendToChat(const QString &text, const QString &prefix)
  * @brief       Clears the current streaming content from chat display.
  * @param       currentText    Current chat text
  * @return      Modified text with streaming line removed
+ * @details     Removes the last line from the chat text if it starts with the
+ *              assistant name (which indicates it's a temporary streaming line).
+ *              Used during streaming updates to replace the previous chunk.
  */
 QString MainWindow::removeStreamingLine(const QString &currentText) const
 {
