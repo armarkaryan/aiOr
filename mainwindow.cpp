@@ -1,13 +1,12 @@
 /**
  * @file        mainwindow.cpp
  * @brief       Main Window implementation for aiOr application.
- * @details     Implements the main user interface functionality including
- *              AI chat interactions, network communication with DeepSeek/Groq APIs,
- *              SSL error handling, markdown rendering, and API key management.
+ * @details     Implements the main user interface functionality using AIProcessor
+ *              for AI API communication, markdown rendering, and profile management.
  *
  * @author      Arthur Markaryan
- * @date        10.05.2026
- * @version     1.4.2
+ * @date        12.05.2026
+ * @version     1.5
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -22,6 +21,7 @@
  * - api_key_reader.h (API key utility)
  *
  * @par ChangeLog:
+ * 12.05.2026   v1.5    Arthur Markaryan - Move AI proced to the AIProcessor class
  * 11.05.2026   v1.4.3  Arthur Markaryan - Add pretty hello to debug console"
  * 10.05.2026   v1.4.2  Arthur Markaryan - Add assistant name display instead of generic "AI:"
  * 10.05.2026   v1.4.1  Arthur Markaryan - Fix streaming response handling
@@ -47,52 +47,51 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "aisettings.h"
-#include <QNetworkRequest>
-#include <QUrl>
-#include <QJsonArray>
 #include <QMessageBox>
 #include <QDebug>
 #include <QSettings>
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QTextCursor>
-#include <QMetaType>
+#include <QComboBox>
 
-#include "utils.h"
-
-#include "error_codes_deepseek.h"
-#include "error_codes_groq.h"
 #include "api_key_reader.h"
 
 /**
  * @brief       Constructor for MainWindow.
  * @param       parent  Parent widget (default is nullptr)
- * @details     Initializes the user interface components, sets up the network manager,
- *              configures the chat history display, loads AI profiles from settings file,
- *              populates the profile combo box, and applies the first profile if available.
  */
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , networkManager(new QNetworkAccessManager(this))
-    , m_currentReply(nullptr)
+    , m_aiProcessor(new AIProcessor(this))
     , m_currentProfileIndex(-1)
 {
     ui->setupUi(this);
 
-    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, "aiOr - AI Chat Client started");
+    qDebug() << "aiOr - AI Chat Client started";
 
     // Configure chat history display
-    ui->te_ChatHistory->setReadOnly(true);          // Read-only for display only
-    ui->te_ChatHistory->setAcceptRichText(true);    // Enable rich text formatting
-
-    // Connect SSL error handler
-    connect(networkManager, &QNetworkAccessManager::sslErrors,
-            this, &MainWindow::onSslErrors);
+    ui->te_ChatHistory->setReadOnly(true);
+    ui->te_ChatHistory->setAcceptRichText(true);
 
     setWindowTitle("aiOr - AI Chat Client");
 
-    // Load profiles from AiSettings file
+    // Connect AIProcessor signals
+    connect(m_aiProcessor, &AIProcessor::streamChunkReceived,
+            this, &MainWindow::onStreamChunkReceived);
+    connect(m_aiProcessor, &AIProcessor::streamCompleted,
+            this, &MainWindow::onStreamCompleted);
+    connect(m_aiProcessor, &AIProcessor::responseReceived,
+            this, &MainWindow::onResponseReceived);
+    connect(m_aiProcessor, &AIProcessor::errorOccurred,
+            this, &MainWindow::onErrorOccurred);
+    connect(m_aiProcessor, &AIProcessor::requestStarted,
+            this, &MainWindow::onRequestStarted);
+    connect(m_aiProcessor, &AIProcessor::requestFinished,
+            this, &MainWindow::onRequestFinished);
+
+    // Load profiles from settings file
     loadProfilesFromSettings();
 
     // Update combo box with profile names
@@ -107,8 +106,6 @@ MainWindow::MainWindow(QWidget *parent)
 
 /**
  * @brief       Destructor for MainWindow.
- * @details     Cleans up allocated UI resources. The network manager
- *              is automatically cleaned up by Qt's parent-child mechanism.
  */
 MainWindow::~MainWindow()
 {
@@ -116,35 +113,7 @@ MainWindow::~MainWindow()
 }
 
 /**
- * @brief       Handles SSL errors during network communication.
- * @param       reply   Network reply that encountered the error
- * @param       errors  List of SSL errors that occurred
- * @details     Logs all SSL errors to the chat history and ignores them
- *              to proceed with the connection. This is useful for development
- *              environments with self-signed certificates but should not be
- *              used in production without proper security review.
- */
-void MainWindow::onSslErrors(QNetworkReply *reply, const QList<QSslError> &errors)
-{
-    QString errorString;
-    for (const QSslError &error : errors)
-    {
-        if (!errorString.isEmpty())
-            errorString += ", ";
-        errorString += error.errorString();
-    }
-
-    ui->te_ChatHistory->append("SSL Errors: " + errorString);
-
-    // Ignore SSL errors for testing purposes (not for production!)
-    reply->ignoreSslErrors();
-}
-
-/**
  * @brief       Handles click events on the Send button.
- * @details     Retrieves user input from the message text edit, adds it to the
- *              chat history, clears the input field, and initiates the AI request.
- *              The message is sent to the configured AI API via sendMessageToAI().
  */
 void MainWindow::on_pb_Send_clicked()
 {
@@ -152,33 +121,25 @@ void MainWindow::on_pb_Send_clicked()
     if (!message.isEmpty())
     {
         // Add user message to chat history
-        ui->te_ChatHistory->append("You: " + message);
+        appendToChat(message, "You: ");
         ui->te_Message->clear();
 
         // Send request to AI API
-        sendMessageToAI(message);
+        m_aiProcessor->sendMessage(message);
     }
 }
 
 /**
  * @brief       Handles click events on the AI Settings button.
- * @details     Opens the AI settings dialog where users can configure
- *              API keys, model parameters, and other AI-related settings.
- *              The dialog is non-modal and auto-deletes on close.
- *              Connects to settingsChanged signal to reload profiles.
  */
 void MainWindow::on_tb_AI_Settings_clicked()
 {
     qDebug() << "Settings button clicked!";
 
-    // Create settings dialog (non-modal to allow main window interaction)
     AiSettings *settingsDialog = new AiSettings(this);
-
-    // Configure the settings window
     settingsDialog->setWindowTitle("AI Settings");
-    settingsDialog->setAttribute(Qt::WA_DeleteOnClose); // Auto-delete on close
+    settingsDialog->setAttribute(Qt::WA_DeleteOnClose);
 
-    // Connect signals to receive settings changes
     connect(settingsDialog, &AiSettings::settingsChanged,
             this, &MainWindow::onSettingsChanged);
 
@@ -188,8 +149,6 @@ void MainWindow::on_tb_AI_Settings_clicked()
 /**
  * @brief       Handles AI profile selection change in combo box.
  * @param       index   Index of the selected AI profile
- * @details     Updates the AI configuration based on the selected profile
- *              and displays a confirmation message in the status bar.
  */
 void MainWindow::on_cb_AI_currentIndexChanged(int index)
 {
@@ -202,21 +161,14 @@ void MainWindow::on_cb_AI_currentIndexChanged(int index)
 
 /**
  * @brief       Called when AI settings are changed in the settings dialog.
- * @details     Reloads profiles from the settings file, updates the combo box,
- *              and applies the first profile if available. Shows a status message
- *              to inform the user that settings have been updated.
  */
 void MainWindow::onSettingsChanged()
 {
     qDebug() << "Settings changed, reloading profiles...";
 
-    // Reload profiles from file
     loadProfilesFromSettings();
-
-    // Update combo box
     updateProfileComboBox();
 
-    // Apply first profile if available
     if (m_profiles.size() > 0)
     {
         applyProfileSettings(0);
@@ -226,403 +178,120 @@ void MainWindow::onSettingsChanged()
 }
 
 /**
- * @brief       Handles completion of network requests to AI API.
- * @param       reply   Network reply containing the API response
- * @details     Processes the API response based on HTTP status codes.
- *              For streaming responses, finalizes the accumulated content.
- *              For non-streaming responses, parses the JSON response directly.
- *              Handles error codes with appropriate user messages.
+ * @brief       Handles streaming chunk received from AIProcessor.
+ * @param       chunk       Partial content chunk received
+ * @param       accumulated Full accumulated content so far
  */
-void MainWindow::onReplyFinished(QNetworkReply *reply)
+void MainWindow::onStreamChunkReceived(const QString &chunk, const QString &accumulated)
+{
+    Q_UNUSED(chunk)
+
+    QString currentText = ui->te_ChatHistory->toMarkdown();
+    currentText = removeStreamingLine(currentText);
+
+    if (!currentText.isEmpty() && !currentText.endsWith('\n'))
+    {
+        currentText += '\n';
+    }
+
+    AIConfig config = m_aiProcessor->getConfig();
+    currentText += config.assistantName + ": " + accumulated;
+    ui->te_ChatHistory->setMarkdown(currentText);
+
+    // Auto-scroll to bottom
+    QTextCursor cursor = ui->te_ChatHistory->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    ui->te_ChatHistory->setTextCursor(cursor);
+}
+
+/**
+ * @brief       Handles streaming completion from AIProcessor.
+ * @param       fullResponse   Complete accumulated response content
+ */
+void MainWindow::onStreamCompleted(const QString &fullResponse)
+{
+    QString currentText = ui->te_ChatHistory->toMarkdown();
+    currentText = removeStreamingLine(currentText);
+
+    if (!currentText.isEmpty() && !currentText.endsWith('\n'))
+    {
+        currentText += '\n';
+    }
+
+    AIConfig config = m_aiProcessor->getConfig();
+    currentText += config.assistantName + ": " + fullResponse;
+    ui->te_ChatHistory->setMarkdown(currentText);
+
+    qDebug() << "Streaming response displayed, length:" << fullResponse.length();
+}
+
+/**
+ * @brief       Handles non-streaming response from AIProcessor.
+ * @param       response    Complete response content
+ */
+void MainWindow::onResponseReceived(const QString &response)
+{
+    AIConfig config = m_aiProcessor->getConfig();
+    appendToChat(response, config.assistantName + ": ");
+}
+
+/**
+ * @brief       Handles errors from AIProcessor.
+ * @param       errorMessage    Human-readable error message
+ * @param       errorCode       HTTP status code or network error code
+ */
+void MainWindow::onErrorOccurred(const QString &errorMessage, int errorCode)
+{
+    Q_UNUSED(errorCode)
+
+    QString formattedMessage = "⚠️ Error: " + errorMessage;
+
+    // Add helpful solution suggestions based on error content
+    if (errorMessage.contains("API URL") || errorMessage.contains("endpoint"))
+    {
+        formattedMessage += "\n💡 Solution: Check your API URL in AI Settings.";
+    }
+    else if (errorMessage.contains("API key") || errorMessage.contains("Authentication"))
+    {
+        formattedMessage += "\n💡 Solution: Check your API key in AI Settings.";
+    }
+    else if (errorMessage.contains("Balance") || errorMessage.contains("funds"))
+    {
+        formattedMessage += "\n💡 Solution: Top up your balance at your provider's website.";
+    }
+    else if (errorMessage.contains("rate limit") || errorMessage.contains("Rate limit"))
+    {
+        formattedMessage += "\n💡 Solution: Please wait a moment before sending more messages.";
+    }
+    else if (errorMessage.contains("server error") || errorMessage.contains("Server"))
+    {
+        formattedMessage += "\n💡 Solution: Please try again later.";
+    }
+
+    appendToChat(formattedMessage);
+}
+
+/**
+ * @brief       Handles request start from AIProcessor.
+ * @param       model       Model being used for the request
+ * @param       isStreaming Whether streaming mode is enabled
+ */
+void MainWindow::onRequestStarted(const QString &model, bool isStreaming)
+{
+    QString mode = isStreaming ? "streaming" : "standard";
+    ui->sb_Main->showMessage(QString("Sending query to %1 (%2 mode)...").arg(model).arg(mode));
+}
+
+/**
+ * @brief       Handles request finish from AIProcessor.
+ */
+void MainWindow::onRequestFinished()
 {
     ui->sb_Main->clearMessage();
-
-    // Check if this is a streaming response
-    if (reply == m_currentReply)
-    {
-        // Streaming response finished
-        if (reply->error() == QNetworkReply::NoError)
-        {
-            // Process any remaining data in buffer
-            if (!m_streamBuffer.isEmpty())
-            {
-                parseStreamChunk(m_streamBuffer);
-            }
-            // Finalize and display the accumulated response
-            finalizeStreamingResponse();
-        }
-        else
-        {
-            // Handle streaming error
-            ui->te_ChatHistory->append("Error: " + reply->errorString());
-            m_streamingContent.clear();
-        }
-
-        // Clean up streaming resources
-        m_currentReply->deleteLater();
-        m_currentReply = nullptr;
-        m_streamBuffer.clear();
-        return;
-    }
-
-    // Non-streaming response handling
-    if (reply->error() == QNetworkReply::NoError)
-    {
-        QByteArray response = reply->readAll();
-
-        // Check for empty response
-        if (response.isEmpty())
-        {
-            ui->te_ChatHistory->append("⚠️ Warning: Empty response from API");
-            return;
-        }
-
-        parseResponse(response);
-    }
-    else
-    {
-        int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-
-        // Get error details for debugging
-        QByteArray errorData = reply->readAll();
-        QString errorString = reply->errorString();
-
-        qDebug() << "HTTP Error Code:" << httpCode;
-        qDebug() << "Error String:" << errorString;
-        qDebug() << "Error Data:" << QString(errorData);
-
-        // Handle specific HTTP error codes
-        switch(httpCode)
-        {
-        case 400:
-            ui->te_ChatHistory->append("⚠️ Invalid Format: Invalid request body format.");
-            ui->te_ChatHistory->append("💡 Solution: Please check your request parameters in AI Settings.");
-            break;
-        case 401:
-            ui->te_ChatHistory->append("⚠️ Authentication Fails: Wrong API key.");
-            ui->te_ChatHistory->append("💡 Solution: Please check your API key in AI Settings.");
-            break;
-        case 402:
-            ui->te_ChatHistory->append("⚠️ Balance Error: Insufficient funds on API account.");
-            ui->te_ChatHistory->append("💡 Solution: Top up your balance at your provider's website.");
-            break;
-        case 403:
-            ui->te_ChatHistory->append("⚠️ Forbidden: Access denied to the API.");
-            ui->te_ChatHistory->append("💡 Solution: Check your API key permissions and IP restrictions.");
-            break;
-        case 404:
-            ui->te_ChatHistory->append("⚠️ Not Found: The API endpoint does not exist.");
-            ui->te_ChatHistory->append("💡 Solution: Check your API URL in AI Settings.");
-            break;
-        case 429:
-            ui->te_ChatHistory->append("⚠️ Rate limit exceeded: Too many requests.");
-            ui->te_ChatHistory->append("💡 Solution: Please wait a moment before sending more messages.");
-            break;
-        case 500:
-        case 502:
-        case 503:
-        case 504:
-            ui->te_ChatHistory->append("⚠️ Server error: The API service is experiencing issues.");
-            ui->te_ChatHistory->append("💡 Solution: Please try again later.");
-            break;
-        default:
-            if (httpCode > 0)
-            {
-                ui->te_ChatHistory->append(QString("⚠️ HTTP Error %1: %2").arg(httpCode).arg(errorString));
-            }
-            else
-            {
-                ui->te_ChatHistory->append("Error: " + errorString);
-            }
-            break;
-        }
-
-        // Try to parse error from response body
-        if (!errorData.isEmpty())
-        {
-            QJsonDocument errorDoc = QJsonDocument::fromJson(errorData);
-            if (!errorDoc.isNull())
-            {
-                QJsonObject errorObj = errorDoc.object();
-                if (errorObj.contains("error"))
-                {
-                    QJsonObject errorDetail = errorObj["error"].toObject();
-                    if (errorDetail.contains("message"))
-                    {
-                        QString errorMessage = errorDetail["message"].toString();
-                        ui->te_ChatHistory->append("Detailed error: " + errorMessage);
-                    }
-                }
-            }
-        }
-    }
-
-    reply->deleteLater();
-}
-
-/**
- * @brief       Handles streaming data received from the AI API.
- * @details     Processes SSE (Server-Sent Events) data chunks as they arrive.
- *              Appends incoming data to a buffer and processes complete messages
- *              separated by double newlines ("\n\n"). Called automatically when
- *              new data is available on the streaming reply.
- */
-void MainWindow::onReadyRead()
-{
-    if (!m_currentReply)
-    {
-        return;
-    }
-
-    // Append new data to buffer
-    m_streamBuffer.append(m_currentReply->readAll());
-
-    // Process complete SSE messages (separated by double newline)
-    int pos;
-    while ((pos = m_streamBuffer.indexOf("\n\n")) != -1)
-    {
-        QByteArray chunk = m_streamBuffer.left(pos);
-        m_streamBuffer.remove(0, pos + 2);
-
-        // Skip empty chunks
-        if (chunk.trimmed().isEmpty())
-        {
-            continue;
-        }
-
-        parseStreamChunk(chunk);
-    }
-}
-
-/**
- * @brief       Parses a streaming chunk from the AI API.
- * @param       chunk Raw chunk data from the streaming response
- * @details     Extracts content from SSE format which looks like "data: {...}".
- *              Accumulates content in m_streamingContent and updates the display
- *              in real-time as each chunk arrives. Handles the "[DONE]" marker
- *              that indicates the end of the stream.
- */
-void MainWindow::parseStreamChunk(const QByteArray &chunk)
-{
-    QString chunkStr = QString::fromUtf8(chunk);
-
-    // SSE format: "data: {...}"
-    if (chunkStr.startsWith("data: "))
-    {
-        QString jsonStr = chunkStr.mid(6);
-
-        // Check for stream end marker
-        if (jsonStr.trimmed() == "[DONE]")
-        {
-            finalizeStreamingResponse();
-            return;
-        }
-
-        QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
-        if (!doc.isNull())
-        {
-            QJsonObject json = doc.object();
-
-            if (json.contains("choices"))
-            {
-                QJsonArray choices = json["choices"].toArray();
-                if (!choices.isEmpty())
-                {
-                    QJsonObject choice = choices[0].toObject();
-
-                    // Streaming responses use "delta" instead of "message"
-                    if (choice.contains("delta"))
-                    {
-                        QJsonObject delta = choice["delta"].toObject();
-                        if (delta.contains("content"))
-                        {
-                            QString content = delta["content"].toString();
-                            if (!content.isEmpty())
-                            {
-                                // Accumulate content
-                                m_streamingContent += content;
-
-                                // Update display in real-time
-                                QString currentText = ui->te_ChatHistory->toMarkdown();
-
-                                // Remove last line if it starts with assistant name to avoid duplication
-                                int lastNewline = currentText.lastIndexOf('\n');
-                                if (lastNewline != -1)
-                                {
-                                    QString lastLine = currentText.mid(lastNewline + 1);
-                                    QString prefix = m_currentAssistantName + ": ";
-                                    if (lastLine.startsWith(prefix))
-                                    {
-                                        currentText = currentText.left(lastNewline);
-                                    }
-                                }
-
-                                // Add updated content with assistant name
-                                if (!currentText.isEmpty() && !currentText.endsWith('\n'))
-                                {
-                                    currentText += '\n';
-                                }
-                                currentText += m_currentAssistantName + ": " + m_streamingContent;
-                                ui->te_ChatHistory->setMarkdown(currentText);
-
-                                // Auto-scroll to bottom
-                                QTextCursor cursor = ui->te_ChatHistory->textCursor();
-                                cursor.movePosition(QTextCursor::End);
-                                ui->te_ChatHistory->setTextCursor(cursor);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * @brief       Finalizes and displays the accumulated streaming response.
- * @details     Called when streaming is complete (when "[DONE]" marker is received).
- *              Ensures the final response is properly displayed in the chat history
- *              and cleans up the accumulated content buffer.
- */
-void MainWindow::finalizeStreamingResponse()
-{
-    if (!m_streamingContent.isEmpty())
-    {
-        // Ensure the final response is properly displayed
-        QString currentText = ui->te_ChatHistory->toMarkdown();
-
-        // Remove last line if it starts with assistant name to avoid duplication
-        int lastNewline = currentText.lastIndexOf('\n');
-        if (lastNewline != -1)
-        {
-            QString lastLine = currentText.mid(lastNewline + 1);
-            QString prefix = m_currentAssistantName + ": ";
-            if (lastLine.startsWith(prefix))
-            {
-                currentText = currentText.left(lastNewline);
-            }
-        }
-
-        // Add final content with assistant name
-        if (!currentText.isEmpty() && !currentText.endsWith('\n'))
-        {
-            currentText += '\n';
-        }
-        currentText += m_currentAssistantName + ": " + m_streamingContent;
-        ui->te_ChatHistory->setMarkdown(currentText);
-
-        qDebug() << "Streaming response completed, length:" << m_streamingContent.length();
-        m_streamingContent.clear();
-    }
-}
-
-/**
- * @brief       Sends a message to the AI API.
- * @param       message User message text to send
- * @details     Constructs a JSON payload with the message, model parameters,
- *              and authentication header. Configures SSL settings and sends
- *              an asynchronous POST request. For streaming mode, sets up
- *              special handlers to process data as it arrives. For non-streaming
- *              mode, uses the simple finished handler.
- */
-void MainWindow::sendMessageToAI(const QString &message)
-{
-    // Validate that we have required settings
-    if (ai.url.isEmpty())
-    {
-        ui->te_ChatHistory->append("⚠️ Error: API URL is not configured. Please check AI settings.");
-        return;
-    }
-
-    if (ai.apiKey.isEmpty())
-    {
-        ui->te_ChatHistory->append("⚠️ Error: API key is not configured. Please check AI settings.");
-        return;
-    }
-
-    QUrl url(ai.url);
-    QNetworkRequest request(url);
-
-    // SSL configuration - use TLS 1.2 or later
-    QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
-    sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
-    request.setSslConfiguration(sslConfig);
-
-    // Request headers
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("Authorization", QString("Bearer %1").arg(ai.apiKey).toUtf8());
-
-    // JSON payload construction
-    QJsonObject json;
-    json["model"] = ai.model;
-
-    QJsonArray messages;
-    QJsonObject messageObj;
-    messageObj["role"] = "user";
-    messageObj["content"] = message;
-    messages.append(messageObj);
-
-    json["messages"] = messages;
-    json["max_tokens"] = ai.max_tokens;
-    json["temperature"] = ai.temperature;
-    json["stream"] = ai.stream;
-
-    QJsonDocument doc(json);
-    QByteArray data = doc.toJson();
-
-    qDebug() << "Sending request to:" << ai.url;
-    qDebug() << "Stream mode:" << (ai.stream ? "enabled" : "disabled");
-    qDebug() << "Request body:" << QString(data);
-
-    if (ai.stream)
-    {
-        // Streaming mode: handle data as it arrives
-        m_streamingContent.clear();
-        m_streamBuffer.clear();
-
-        QNetworkReply *reply = networkManager->post(request, data);
-        m_currentReply = reply;
-
-        // Connect using lambdas to avoid signal/slot argument mismatch
-        connect(reply, &QNetworkReply::readyRead, this, [this, reply]() {
-            if (reply == m_currentReply)
-            {
-                onReadyRead();
-            }
-        });
-
-        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-            if (reply == m_currentReply)
-            {
-                onReplyFinished(reply);
-            }
-        });
-
-        ui->sb_Main->showMessage(QString("Streaming request to %1...").arg(ai.model));
-    }
-    else
-    {
-        // Non-streaming mode: use simple finished handler
-        // Disconnect any previous connections to avoid duplicate handling
-        disconnect(networkManager, &QNetworkAccessManager::finished,
-                   this, &MainWindow::onReplyFinished);
-
-        connect(networkManager, &QNetworkAccessManager::finished,
-                this, &MainWindow::onReplyFinished);
-
-        networkManager->post(request, data);
-        ui->sb_Main->showMessage(QString("Sending query to %1...").arg(ai.model));
-    }
 }
 
 /**
  * @brief       Loads profiles from AiSettings configuration file.
- * @details     Reads the aisettings.set file (INI format) from the application
- *              directory and populates the m_profiles list with all configured
- *              AI profiles. The file format includes a list of profile names
- *              and a separate array of settings that correspond to each profile.
- *              Handles missing files gracefully and properly converts the stream
- *              value which may be stored as bool, int, or string.
  */
 void MainWindow::loadProfilesFromSettings()
 {
@@ -638,7 +307,7 @@ void MainWindow::loadProfilesFromSettings()
     {
         qDebug() << "AI settings file does not exist, using default fallback profiles";
 
-        ProfileInfo defaultProfile;
+        AIConfig defaultProfile;
         defaultProfile.name = "DeepSeek (Default)";
         defaultProfile.model = "deepseek-chat";
         defaultProfile.url = "https://api.deepseek.com/v1/chat/completions";
@@ -671,7 +340,7 @@ void MainWindow::loadProfilesFromSettings()
 
     for (int i = 0; i < profileNames.size(); ++i)
     {
-        ProfileInfo profile;
+        AIConfig profile;
         profile.name = profileNames[i];
 
         if (i < settingsSize)
@@ -686,7 +355,6 @@ void MainWindow::loadProfilesFromSettings()
             // Handle stream value that could be stored in different formats (Qt 6 compatible)
             QVariant streamValue = settings.value("stream");
 
-            // Use metaType() instead of deprecated type() for Qt 6
             if (streamValue.metaType().id() == QMetaType::Bool)
             {
                 profile.stream = streamValue.toBool();
@@ -726,7 +394,6 @@ void MainWindow::loadProfilesFromSettings()
     }
     settings.endArray();
 
-    // If no profiles were loaded, report the issue
     if (m_profiles.isEmpty())
     {
         qDebug() << "No profiles found in settings file";
@@ -736,206 +403,20 @@ void MainWindow::loadProfilesFromSettings()
 }
 
 /**
- * @brief       Parses the AI API response (non-streaming mode).
- * @param       response Raw JSON response from the API
- * @details     Extracts the AI-generated content from the response JSON.
- *              The expected format is: {"choices":[{"message":{"content":"..."}}]}
- *              Handles error responses and displays appropriate messages.
- *              Successfully parsed content is rendered as markdown.
- */
-void MainWindow::parseResponse(const QByteArray &response)
-{
-    // Clean the response: remove leading/trailing whitespace, BOM characters, etc.
-    QByteArray cleanResponse = response.trimmed();
-
-    // Remove UTF-8 BOM if present (EF BB BF)
-    if (cleanResponse.size() >= 3 &&
-        (unsigned char)cleanResponse[0] == 0xEF &&
-        (unsigned char)cleanResponse[1] == 0xBB &&
-        (unsigned char)cleanResponse[2] == 0xBF)
-    {
-        cleanResponse = cleanResponse.mid(3);
-        cleanResponse = cleanResponse.trimmed();
-    }
-
-    qDebug() << "Response received (cleaned):" << QString(cleanResponse);
-
-    // Check if response is empty
-    if (cleanResponse.isEmpty())
-    {
-        ui->te_ChatHistory->append("Response parsing error: Empty response from API");
-        return;
-    }
-
-    QJsonDocument doc = QJsonDocument::fromJson(cleanResponse);
-    if (!doc.isNull())
-    {
-        QJsonObject json = doc.object();
-
-        // Check for successful response with choices
-        if (json.contains("choices"))
-        {
-            QJsonArray choices = json["choices"].toArray();
-            if (!choices.isEmpty())
-            {
-                QJsonObject choice = choices[0].toObject();
-
-                if (choice.contains("message"))
-                {
-                    QJsonObject message = choice["message"].toObject();
-                    QString content = message["content"].toString();
-                    if (!content.isEmpty())
-                    {
-                        // Use assistant name as prefix
-                        appendMarkdown(ui->te_ChatHistory, content, m_currentAssistantName + ": ");
-                        return;
-                    }
-                }
-
-                // Some APIs use "text" instead of "message"
-                if (choice.contains("text"))
-                {
-                    QString content = choice["text"].toString();
-                    if (!content.isEmpty())
-                    {
-                        // Use assistant name as prefix
-                        appendMarkdown(ui->te_ChatHistory, content, m_currentAssistantName + ": ");
-                        return;
-                    }
-                }
-            }
-        }
-
-        // Check for error response
-        if (json.contains("error"))
-        {
-            QJsonObject error = json["error"].toObject();
-            QString errorMsg = error["message"].toString();
-            ui->te_ChatHistory->append("API Error: " + errorMsg);
-            qDebug() << "API Error:" << errorMsg;
-        }
-        else
-        {
-            ui->te_ChatHistory->append("Response parsing error: Unexpected response format");
-            qDebug() << "Unexpected response JSON:" << QString(cleanResponse);
-        }
-    }
-    else
-    {
-        // Try to extract error message from non-JSON response
-        QString responseStr = QString::fromUtf8(cleanResponse);
-        if (responseStr.contains("<!DOCTYPE") || responseStr.contains("<html>"))
-        {
-            ui->te_ChatHistory->append("API Error: Received HTML error page instead of JSON");
-            ui->te_ChatHistory->append("💡 Solution: Check your API URL and network connection.");
-        }
-        else if (responseStr.length() > 0)
-        {
-            ui->te_ChatHistory->append("Response parsing error: Invalid JSON format");
-            qDebug() << "Invalid JSON response:" << responseStr;
-        }
-        else
-        {
-            ui->te_ChatHistory->append("Response parsing error: Empty or invalid response");
-        }
-    }
-}
-
-/**
- * @brief       Suggests alternative AI services to the user.
- * @details     Called when API errors occur. Displays a local response message
- *              suggesting users check their configuration, API key, account balance,
- *              and network connection. Provides a helpful fallback when the
- *              primary AI service is unavailable.
- */
-void MainWindow::suggestAlternative()
-{
-    ui->te_ChatHistory->append("🤖 Local response: Unable to connect to the AI service. "
-                               "Please check your API key, account balance, and network connection. "
-                               "You can also try switching to a different AI profile.");
-}
-
-/**
- * @brief       Appends Markdown text to a QTextEdit widget.
- * @param       textEdit    Target QTextEdit widget
- * @param       markdown    Markdown text to append
- * @param       prefix      Optional prefix for the message (default is empty)
- * @details     Retrieves the current markdown content, appends the new text
- *              with a new line separator, and sets the updated markdown back.
- *              Preserves existing formatting and content. Uses QTextEdit's
- *              built-in markdown support for proper rendering.
- */
-void MainWindow::appendMarkdown(QTextEdit* textEdit, const QString& markdown, const QString& prefix)
-{
-    // Get current text in markdown format
-    QString currentText = textEdit->toMarkdown();
-
-    // Add new line and new text with prefix
-    if (!currentText.isEmpty() && !currentText.endsWith('\n'))
-    {
-        currentText += '\n';
-    }
-    currentText += prefix + markdown;
-
-    // Set the updated text
-    textEdit->setMarkdown(currentText);
-
-    // Auto-scroll to bottom
-    QTextCursor cursor = textEdit->textCursor();
-    cursor.movePosition(QTextCursor::End);
-    textEdit->setTextCursor(cursor);
-}
-
-/**
- * @brief       Appends Markdown converted to HTML.
- * @param       textEdit    Target QTextEdit widget
- * @param       markdown    Markdown text to convert and append
- * @details     Converts markdown formatting to rich HTML for enhanced display.
- *              Strips outer HTML body tags to preserve only the content.
- *              Uses QTextEdit::append() which accepts HTML formatting.
- *              This method is kept for compatibility but appendMarkdown()
- *              is preferred for normal use.
- */
-void MainWindow::appendAsHtml(QTextEdit* textEdit, const QString& markdown)
-{
-    QTextEdit tempEdit;
-    tempEdit.setHtml(markdown);
-    QString html = tempEdit.toHtml();
-
-    // Remove outer HTML tags, keep only body content
-    int bodyStart = html.indexOf("<body>");
-    int bodyEnd = html.indexOf("</body>");
-    if (bodyStart != -1 && bodyEnd != -1)
-    {
-        html = html.mid(bodyStart + 6, bodyEnd - bodyStart - 6);
-    }
-
-    textEdit->append(html);
-}
-
-/**
  * @brief       Updates the combo box with loaded profile names.
- * @details     Clears the existing combo box items, repopulates with
- *              profile names from m_profiles, and restores the selection
- *              to the previously selected profile. Temporarily disconnects
- *              the currentIndexChanged signal to avoid triggering callbacks
- *              while rebuilding the list.
  */
 void MainWindow::updateProfileComboBox()
 {
-    // Temporarily disconnect signal to avoid triggering on each change
     disconnect(ui->cb_AI, QOverload<int>::of(&QComboBox::currentIndexChanged),
                this, &MainWindow::on_cb_AI_currentIndexChanged);
 
     ui->cb_AI->clear();
 
-    // Add all profile names to combo box
-    for (const ProfileInfo &profile : m_profiles)
+    for (const AIConfig &profile : m_profiles)
     {
         ui->cb_AI->addItem(profile.name);
     }
 
-    // Restore selection if valid
     if (m_currentProfileIndex >= 0 && m_currentProfileIndex < m_profiles.size())
     {
         ui->cb_AI->setCurrentIndex(m_currentProfileIndex);
@@ -946,7 +427,6 @@ void MainWindow::updateProfileComboBox()
         m_currentProfileIndex = 0;
     }
 
-    // Reconnect signal
     connect(ui->cb_AI, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MainWindow::on_cb_AI_currentIndexChanged);
 
@@ -956,11 +436,6 @@ void MainWindow::updateProfileComboBox()
 /**
  * @brief       Applies the selected profile settings to the AI configuration.
  * @param       profileIndex Index of the profile to apply
- * @details     Updates the ai structure with settings from the specified profile,
- *              updates m_currentProfileIndex, and logs the applied settings.
- *              Shows warning messages in the chat history if required settings
- *              (URL or API key) are missing, as this will prevent successful
- *              API communication.
  */
 void MainWindow::applyProfileSettings(int profileIndex)
 {
@@ -970,40 +445,76 @@ void MainWindow::applyProfileSettings(int profileIndex)
         return;
     }
 
-    const ProfileInfo &profile = m_profiles[profileIndex];
+    const AIConfig &profile = m_profiles[profileIndex];
 
-    // Apply all settings to active AI configuration
-    ai.model = profile.model;
-    ai.url = profile.url;
-    ai.apiKey = profile.apiKey;
-    ai.max_tokens = profile.max_tokens;
-    ai.temperature = profile.temperature;
-    ai.stream = profile.stream;
-    m_currentAssistantName = profile.name;  // Store assistant name
-
+    // Apply all settings to AI processor
+    m_aiProcessor->setConfig(profile);
     m_currentProfileIndex = profileIndex;
 
     qDebug() << "Applied profile:" << profile.name
-             << "Model:" << ai.model
-             << "URL:" << ai.url
-             << "Max tokens:" << ai.max_tokens
-             << "Temperature:" << ai.temperature
-             << "Stream:" << ai.stream
-             << "Assistant name:" << m_currentAssistantName;
+             << "Model:" << profile.model
+             << "URL:" << profile.url
+             << "Max tokens:" << profile.max_tokens
+             << "Temperature:" << profile.temperature
+             << "Stream:" << profile.stream;
 
     // Validate and warn about missing settings
-    if (ai.url.isEmpty())
+    if (profile.url.isEmpty())
     {
-        ui->te_ChatHistory->append("⚠️ Warning: No API URL configured for this profile.");
+        appendToChat("⚠️ Warning: No API URL configured for this profile.");
     }
-    if (ai.apiKey.isEmpty())
+    if (profile.apiKey.isEmpty())
     {
-        ui->te_ChatHistory->append("⚠️ Warning: No API key configured for this profile.");
+        appendToChat("⚠️ Warning: No API key configured for this profile.");
     }
 
     // Show stream status in status bar
-    if (ai.stream)
+    if (profile.stream)
     {
         ui->sb_Main->showMessage(QString("Profile '%1' loaded (Streaming mode enabled)").arg(profile.name), 3000);
     }
+}
+
+/**
+ * @brief       Appends text to chat history with optional prefix.
+ * @param       text    Text to append
+ * @param       prefix  Optional prefix (default is empty)
+ */
+void MainWindow::appendToChat(const QString &text, const QString &prefix)
+{
+    QString currentText = ui->te_ChatHistory->toMarkdown();
+
+    if (!currentText.isEmpty() && !currentText.endsWith('\n'))
+    {
+        currentText += '\n';
+    }
+    currentText += prefix + text;
+
+    ui->te_ChatHistory->setMarkdown(currentText);
+
+    // Auto-scroll to bottom
+    QTextCursor cursor = ui->te_ChatHistory->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    ui->te_ChatHistory->setTextCursor(cursor);
+}
+
+/**
+ * @brief       Clears the current streaming content from chat display.
+ * @param       currentText    Current chat text
+ * @return      Modified text with streaming line removed
+ */
+QString MainWindow::removeStreamingLine(const QString &currentText) const
+{
+    int lastNewline = currentText.lastIndexOf('\n');
+    if (lastNewline != -1)
+    {
+        QString lastLine = currentText.mid(lastNewline + 1);
+        AIConfig config = m_aiProcessor->getConfig();
+        QString prefix = config.assistantName + ": ";
+        if (lastLine.startsWith(prefix))
+        {
+            return currentText.left(lastNewline);
+        }
+    }
+    return currentText;
 }

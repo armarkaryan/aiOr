@@ -35,6 +35,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         chatlist.h chatlist.cpp chatlist.ui
         aisettings.h aisettings.cpp aisettings.ui
         utils.h
+		ai_processor.cpp ai_processor.h
 
 
     )
