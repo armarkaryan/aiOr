@@ -6,8 +6,8 @@
  *              token limits, temperature, and API endpoints.
  *
  * @author      Arthur Markaryan
- * @date        10.05.2026
- * @version     1.1.5
+ * @date        12.05.2026
+ * @version     1.1.6
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
@@ -16,6 +16,7 @@
  * - ui_aisettings.h (generated UI form)
  *
  * @par ChangeLog:
+ * 12.05.2026   v1.1.6  Arthur Markaryan - Reject auto-save settings if UI input widgets changed
  * 10.05.2026   v1.1.5  Arthur Markaryan - Fix bug wrong move up/down item in the AI list
  * 10.05.2026   v1.1.4  Arthur Markaryan - Fix ghost selection on remove
  * 10.05.2026   v1.1.3  Arthur Markaryan - Fix profile removal and reindexing logic with sequential list
@@ -71,14 +72,6 @@ AiSettings::AiSettings(QWidget *parent)
     connect(ui->tb_RemoveAI, &QToolButton::clicked, this, &AiSettings::onRemoveAI);
     connect(ui->tb_MoveUp, &QToolButton::clicked, this, &AiSettings::onMoveUp);
     connect(ui->tb_MoveDown, &QToolButton::clicked, this, &AiSettings::onMoveDown);
-
-    // Connect UI input widgets to auto-save signal
-    connect(ui->le_Model, &QLineEdit::textChanged, this, &AiSettings::onSettingsChanged);
-    connect(ui->le_URL, &QLineEdit::textChanged, this, &AiSettings::onSettingsChanged);
-    connect(ui->le_APIkey, &QLineEdit::textChanged, this, &AiSettings::onSettingsChanged);
-    connect(ui->sb_MaxTokens, QOverload<int>::of(&QSpinBox::valueChanged), this, &AiSettings::onSettingsChanged);
-    connect(ui->dsb_Temperature, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &AiSettings::onSettingsChanged);
-    connect(ui->cb_Stream, &QCheckBox::toggled, this, &AiSettings::onSettingsChanged);
 
     // Connect Save button
     connect(ui->bb_SaveCancel, &QDialogButtonBox::clicked, this, &AiSettings::onButtonBoxClicked);
