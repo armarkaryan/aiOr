@@ -7,15 +7,17 @@
  *
  * @author      Arthur Markaryan
  * @date        12.05.2026
- * @version     1.0
+ * @version     1.0.1
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
  * @par ChangeLog:
+ * 12.05.2026   v1.0.1  Arthur Markaryan - Replace qDebug with UTILS_message macro
  * 12.05.2026   v1.0    Arthur Markaryan - Initial implementation (based on old MainWindow)
  */
 
 #include "ai_processor.h"
+#include "utils.h"
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QJsonDocument>
@@ -59,9 +61,7 @@ void AiProcessor::setConfig(const AiConfig &config)
     {
         m_config.assistantName = m_config.name.isEmpty() ? "AI" : m_config.name;
     }
-    qDebug() << "AiProcessor: Config updated - Model:" << m_config.model
-             << "Stream:" << m_config.stream
-             << "Assistant:" << m_config.assistantName;
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("AiProcessor: Config updated - Model: %1 Stream: %2 Assistant: %3").arg(m_config.model).arg(m_config.stream).arg(m_config.assistantName).toUtf8().constData());
 }
 
 /**
@@ -133,9 +133,9 @@ void AiProcessor::sendMessage(const QString &message)
     // Build JSON payload
     QByteArray data = buildRequestPayload(message);
 
-    qDebug() << "AiProcessor: Sending request to:" << m_config.url;
-    qDebug() << "AiProcessor: Stream mode:" << (m_config.stream ? "enabled" : "disabled");
-    qDebug() << "AiProcessor: Model:" << m_config.model;
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("AiProcessor: Sending request to: %1").arg(m_config.url).toUtf8().constData());
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("AiProcessor: Stream mode: %1").arg(m_config.stream ? "enabled" : "disabled").toUtf8().constData());
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("AiProcessor: Model: %1").arg(m_config.model).toUtf8().constData());
 
     m_isStreamingRequest = m_config.stream;
     emit requestStarted(m_config.model, m_isStreamingRequest);
@@ -231,9 +231,9 @@ void AiProcessor::onReplyFinished(QNetworkReply *reply)
         QString errorString = reply->errorString();
         QByteArray errorData = reply->readAll();
 
-        qDebug() << "AiProcessor: HTTP Error Code:" << httpCode;
-        qDebug() << "AiProcessor: Error String:" << errorString;
-        qDebug() << "AiProcessor: Error Data:" << QString(errorData);
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_ERROR, QString("AiProcessor: HTTP Error Code: %1").arg(httpCode).toUtf8().constData());
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_ERROR, QString("AiProcessor: Error String: %1").arg(errorString).toUtf8().constData());
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_ERROR, QString("AiProcessor: Error Data: %1").arg(QString(errorData)).toUtf8().constData());
 
         QString userMessage;
 
@@ -393,7 +393,7 @@ void AiProcessor::finalizeStreamingResponse()
     if (!m_streamingContent.isEmpty())
     {
         emit streamCompleted(m_streamingContent);
-        qDebug() << "AiProcessor: Streaming response completed, length:" << m_streamingContent.length();
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("AiProcessor: Streaming response completed, length: %1").arg(m_streamingContent.length()).toUtf8().constData());
         m_streamingContent.clear();
     }
 }
@@ -417,7 +417,7 @@ void AiProcessor::parseResponse(const QByteArray &response)
         cleanResponse = cleanResponse.trimmed();
     }
 
-    qDebug() << "AiProcessor: Response received (cleaned):" << QString(cleanResponse);
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("AiProcessor: Response received (cleaned): %1").arg(QString(cleanResponse)).toUtf8().constData());
 
     // Check if response is empty
     if (cleanResponse.isEmpty())
@@ -469,12 +469,12 @@ void AiProcessor::parseResponse(const QByteArray &response)
             QJsonObject error = json["error"].toObject();
             QString errorMsg = error["message"].toString();
             emit errorOccurred(errorMsg, 0);
-            qDebug() << "AiProcessor: API Error:" << errorMsg;
+            UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_ERROR, QString("AiProcessor: API Error: %1").arg(errorMsg).toUtf8().constData());
         }
         else
         {
             emit errorOccurred("Unexpected response format from API", 0);
-            qDebug() << "AiProcessor: Unexpected response JSON:" << QString(cleanResponse);
+            UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_ERROR, QString("AiProcessor: Unexpected response JSON: %1").arg(QString(cleanResponse)).toUtf8().constData());
         }
     }
     else
@@ -488,7 +488,7 @@ void AiProcessor::parseResponse(const QByteArray &response)
         else if (responseStr.length() > 0)
         {
             emit errorOccurred("Invalid JSON format received from API", 0);
-            qDebug() << "AiProcessor: Invalid JSON response:" << responseStr;
+            UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_ERROR, QString("AiProcessor: Invalid JSON response: %1").arg(responseStr).toUtf8().constData());
         }
         else
         {
