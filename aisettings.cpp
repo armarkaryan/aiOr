@@ -7,15 +7,17 @@
  *
  * @author      Arthur Markaryan
  * @date        12.05.2026
- * @version     1.1.6
+ * @version     1.1.7
  * @license     LGPL v3.0
  * @copyright   Copyright (c) 2026
  *
  * @par Dependencies:
  * - aisettings.h (class declaration)
  * - ui_aisettings.h (generated UI form)
+ * - utils.h (debug macros)
  *
  * @par ChangeLog:
+ * 12.05.2026   v1.1.7  Arthur Markaryan - Replace qDebug with UTILS_message macro
  * 12.05.2026   v1.1.6  Arthur Markaryan - Reject auto-save settings if UI input widgets changed
  * 10.05.2026   v1.1.5  Arthur Markaryan - Fix bug wrong move up/down item in the AI list
  * 10.05.2026   v1.1.4  Arthur Markaryan - Fix ghost selection on remove
@@ -30,6 +32,7 @@
 
 #include "aisettings.h"
 #include "ui_aisettings.h"
+#include "utils.h"
 #include <QSettings>
 #include <QCoreApplication>
 #include <QDir>
@@ -159,7 +162,7 @@ void AiSettings::forceUpdateListView()
 void AiSettings::saveSettings()
 {
     QString configPath = QCoreApplication::applicationDirPath() + "/aisettings.set";
-    qDebug() << "Saving AI settings to:" << configPath;
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Saving AI settings to: %1").arg(configPath).toUtf8().constData());
     QSettings settings(configPath, QSettings::IniFormat);
 
     // Save current AI profile selection
@@ -213,20 +216,19 @@ void AiSettings::saveSettings()
 
     if (settings.status() == QSettings::NoError)
     {
-        qDebug() << "AI settings saved successfully";
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_SUCCESS, "AI settings saved successfully");
         if (QFile::exists(configPath))
         {
-            qDebug() << "File created successfully! Size:"
-                     << QFileInfo(configPath).size() << "bytes";
+            UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("File created successfully! Size: %1 bytes").arg(QFileInfo(configPath).size()).toUtf8().constData());
         }
         else
         {
-            qDebug() << "ERROR: File was not created!";
+            UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_ERROR, "ERROR: File was not created!");
         }
     }
     else
     {
-        qDebug() << "Error saving AI settings:" << settings.status();
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_ERROR, QString("Error saving AI settings: %1").arg(settings.status()).toUtf8().constData());
     }
 }
 
@@ -241,7 +243,7 @@ void AiSettings::loadSettings()
     QString configPath = QCoreApplication::applicationDirPath() + "/aisettings.set";
     QSettings settings(configPath, QSettings::IniFormat);
 
-    qDebug() << "Loading AI settings from:" << configPath;
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Loading AI settings from: %1").arg(configPath).toUtf8().constData());
 
     // Clear existing data
     m_aiListModel->clear();
@@ -250,7 +252,7 @@ void AiSettings::loadSettings()
 
     if (!QFile::exists(configPath))
     {
-        qDebug() << "AI settings file does not exist, using defaults";
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_WARNING, "AI settings file does not exist, using defaults");
         // Add default profile
         QStandardItem *defaultItem = new QStandardItem("Default AI");
         m_aiListModel->appendRow(defaultItem);
@@ -283,7 +285,7 @@ void AiSettings::loadSettings()
     int listSize = settings.beginReadArray("AI/PROFILES");
     if (listSize > 0)
     {
-        qDebug() << "Loading AI profiles, count:" << listSize;
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Loading AI profiles, count: %1").arg(listSize).toUtf8().constData());
 
         for (int i = 0; i < listSize; ++i)
         {
@@ -294,7 +296,7 @@ void AiSettings::loadSettings()
             {
                 QStandardItem *item = new QStandardItem(name);
                 m_aiListModel->appendRow(item);
-                qDebug() << "  Added AI profile:" << name;
+                UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("  Added AI profile: %1").arg(name).toUtf8().constData());
             }
         }
     }
@@ -305,7 +307,7 @@ void AiSettings::loadSettings()
     {
         QStandardItem *defaultItem = new QStandardItem("Default AI");
         m_aiListModel->appendRow(defaultItem);
-        qDebug() << "No profiles found, created default";
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_WARNING, "No profiles found, created default");
     }
 
     // Load settings for each AI profile
@@ -349,19 +351,18 @@ void AiSettings::loadSettings()
         m_currentProfileIndex = currentProfile;
         ui->lv_AIList->setCurrentIndex(m_aiListModel->index(currentProfile, 0));
         displayProfileSettings(currentProfile);
-        qDebug() << "Restored current profile index:" << currentProfile;
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Restored current profile index: %1").arg(currentProfile).toUtf8().constData());
     }
     else if (m_aiListModel->rowCount() > 0)
     {
         m_currentProfileIndex = 0;
         ui->lv_AIList->setCurrentIndex(m_aiListModel->index(0, 0));
         displayProfileSettings(0);
-        qDebug() << "Set first profile as current";
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, "Set first profile as current");
     }
     m_suppressAutoSave = false;
 
-    qDebug() << "AI settings loaded successfully, profiles count:" << m_aiListModel->rowCount()
-             << "settings list size:" << m_profileSettingsList.size();
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("AI settings loaded successfully, profiles count: %1 settings list size: %2").arg(m_aiListModel->rowCount()).arg(m_profileSettingsList.size()).toUtf8().constData());
 }
 
 /**
@@ -419,7 +420,7 @@ void AiSettings::saveCurrentProfileSettings()
         settings["stream"] = ui->cb_Stream->isChecked();
         m_profileSettingsList[m_currentProfileIndex] = settings;
 
-        qDebug() << "Saved settings for profile" << m_currentProfileIndex;
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Saved settings for profile %1").arg(m_currentProfileIndex).toUtf8().constData());
     }
 }
 
@@ -449,15 +450,14 @@ void AiSettings::onCurrentProfileChanged(const QModelIndex &current, const QMode
     {
         m_currentProfileIndex = -1;
         displayProfileSettings(-1);
-        qDebug() << "No profile selected (invalid index)";
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_WARNING, "No profile selected (invalid index)");
         return;
     }
 
     // Check if index is within valid range
     if (current.row() >= m_aiListModel->rowCount() || current.row() < 0)
     {
-        qDebug() << "Warning: current index" << current.row()
-        << "is out of range, model size:" << m_aiListModel->rowCount();
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_WARNING, QString("Warning: current index %1 is out of range, model size: %2").arg(current.row()).arg(m_aiListModel->rowCount()).toUtf8().constData());
         return;
     }
 
@@ -470,7 +470,7 @@ void AiSettings::onCurrentProfileChanged(const QModelIndex &current, const QMode
     // Update current profile index and display
     m_currentProfileIndex = current.row();
     displayProfileSettings(m_currentProfileIndex);
-    qDebug() << "Switched to profile" << m_currentProfileIndex;
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Switched to profile %1").arg(m_currentProfileIndex).toUtf8().constData());
 }
 
 /**
@@ -510,8 +510,7 @@ void AiSettings::onAddAI()
         m_currentProfileIndex = newRow;
         ui->lv_AIList->setCurrentIndex(m_aiListModel->index(newRow, 0));
 
-        qDebug() << "Added new AI profile:" << name << "at row" << newRow
-                 << "settings list size:" << m_profileSettingsList.size();
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_SUCCESS, QString("Added new AI profile: %1 at row %2 settings list size: %3").arg(name).arg(newRow).arg(m_profileSettingsList.size()).toUtf8().constData());
     }
     else if (ok && name.isEmpty())
     {
@@ -564,9 +563,7 @@ void AiSettings::onRemoveAI()
         // Remove from settings list
         m_profileSettingsList.removeAt(removedRow);
 
-        qDebug() << "Removed profile at row" << removedRow
-                 << "new model size:" << m_aiListModel->rowCount()
-                 << "new settings list size:" << m_profileSettingsList.size();
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Removed profile at row %1 new model size: %2 new settings list size: %3").arg(removedRow).arg(m_aiListModel->rowCount()).arg(m_profileSettingsList.size()).toUtf8().constData());
 
         // Force complete refresh of the view
         ui->lv_AIList->reset();
@@ -598,7 +595,7 @@ void AiSettings::onRemoveAI()
         ui->lv_AIList->update();
         this->update();
 
-        qDebug() << "Removed AI profile:" << profileName;
+        UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_SUCCESS, QString("Removed AI profile: %1").arg(profileName).toUtf8().constData());
     }
 }
 
@@ -664,7 +661,7 @@ void AiSettings::onMoveUp()
     // Force update
     ui->lv_AIList->update();
 
-    qDebug() << "Moved profile up from row" << fromRow << "to" << toRow;
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Moved profile up from row %1 to %2").arg(fromRow).arg(toRow).toUtf8().constData());
 }
 
 /**
@@ -729,7 +726,7 @@ void AiSettings::onMoveDown()
     // Force update
     ui->lv_AIList->update();
 
-    qDebug() << "Moved profile down from row" << fromRow << "to" << toRow;
+    UTILS_message(UTILS_DEBUG_MESSAGE_TYPE_INFO, QString("Moved profile down from row %1 to %2").arg(fromRow).arg(toRow).toUtf8().constData());
 }
 
 /**
