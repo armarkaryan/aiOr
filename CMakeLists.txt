@@ -33,7 +33,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         error_codes_groq.h
         api_key_reader.h
         chatlist.h chatlist.cpp chatlist.ui
-        aisettings.h aisettings.cpp aisettings.ui
+		ai_settings.h ai_settings.cpp ai_settings.ui
         utils.h
 		ai_processor.cpp ai_processor.h
 

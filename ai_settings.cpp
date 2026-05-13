@@ -30,8 +30,8 @@
  * @see         AiSettings
  */
 
-#include "aisettings.h"
-#include "ui_aisettings.h"
+#include "ai_settings.h"
+#include "ui_ai_settings.h"
 #include "utils.h"
 #include <QSettings>
 #include <QCoreApplication>

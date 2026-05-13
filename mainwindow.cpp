@@ -50,7 +50,7 @@
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "aisettings.h"
+#include "ai_settings.h"
 #include <QMessageBox>
 #include <QDebug>
 #include <QSettings>

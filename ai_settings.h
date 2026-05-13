@@ -29,8 +29,8 @@
  * @see         AiSettings::settingsChanged()
  */
 
-#ifndef _AISETTINGS_H_
-#define _AISETTINGS_H_
+#ifndef _AI_SETTINGS_H_
+#define _AI_SETTINGS_H_
 
 #include <QDialog>
 #include <QAbstractButton>
@@ -179,4 +179,4 @@ protected:
     void showEvent(QShowEvent *event) override;
 };
 
-#endif /* _AISETTINGS_H_ */
+#endif /* _AI_SETTINGS_H_ */
